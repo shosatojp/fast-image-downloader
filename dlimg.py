@@ -1,12 +1,10 @@
 #!/usr/bin/python3
 import asyncio
-from lib.waiter import ConstWaiter, DefaultWaiter, RandomWaiter, select_waiter
+from lib.waiter import select_waiter
 import lib.core
 import lib.sites
 import lib.lib
-import sys
 import argparse
-import aiohttp
 import signal
 
 signal.signal(signal.SIGINT, lambda n, f: exit(1))
@@ -29,11 +27,17 @@ parser.add_argument('--query', '-s', default='',  help='query for search')
 parser.add_argument('--site', '-t', default='',  help='site name')
 parser.add_argument('--useragent', '-ua', default='',  help='user agent')
 parser.add_argument('--mods', '-m', action='store_true', default=False,  help='show available modules')
-parser.add_argument('--wait', '-w', default='', nargs='+', type=str, help='')
+parser.add_argument('--wait', '-w', default='', nargs='+', type=str, help='interval for http requests. default is none. `-w 0.5` `-w random 1 2.5`')
 
 args = parser.parse_args()
 
 args_dict = vars(args)
+
+# 引数チェック
+if not (args_dict['url'] or (args_dict['query'] and args_dict['site'])):
+    parser.print_usage()
+    exit(1)
+
 args_dict['name_fn'] = lib.lib.select_name(args_dict['name'])
 args_dict['threading'] = args_dict['selenium']
 args_dict['waiter'] = select_waiter(args_dict['wait'])

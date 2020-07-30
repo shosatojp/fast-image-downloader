@@ -51,10 +51,10 @@ class RandomWaiter(DefaultWaiter):
 
 def select_waiter(wargs: list):
     if (len(wargs) == 1):
-        return ConstWaiter(int(wargs[0]))
+        return ConstWaiter(float(wargs[0]))
     elif (len(wargs) == 2 and wargs[0] == 'const'):
-        return ConstWaiter(int(wargs[1]))
+        return ConstWaiter(float(wargs[1]))
     elif len(wargs) == 3 and wargs[0] == 'random':
-        return RandomWaiter(int(wargs[1]), int(wargs[2]))
+        return RandomWaiter(float(wargs[1]), float(wargs[2]))
     else:
         return DefaultWaiter()
