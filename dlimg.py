@@ -34,6 +34,9 @@ args = parser.parse_args()
 args_dict = vars(args)
 
 # 引数チェック
+if args_dict['mods']:
+    lib.sites.print_sites_info()
+    exit(0)
 if not (args_dict['url'] or (args_dict['query'] and args_dict['site'])):
     parser.print_usage()
     exit(1)
@@ -41,10 +44,6 @@ if not (args_dict['url'] or (args_dict['query'] and args_dict['site'])):
 args_dict['name_fn'] = lib.lib.select_name(args_dict['name'])
 args_dict['threading'] = args_dict['selenium']
 args_dict['waiter'] = select_waiter(args_dict['wait'])
-
-if args_dict['mods']:
-    lib.sites.print_sites_info()
-    exit(0)
 
 info_getter = lib.sites.info_getter_selector(**args_dict)
 loop = asyncio.get_event_loop()
