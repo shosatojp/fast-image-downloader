@@ -3,9 +3,18 @@
 ## Usage
 
 ```sh
-python3 dlimg.py https://example.com/photos?query=dog
+python3 dlimg.py 'https://example.com/photos?query=dog'
 python3 dlimg.py --site example --query dog
 ```
+
+## Available Sites
+
+| site                 | query |
+|----------------------|-------|
+| google               |   O   |
+| bing                 |   O   |
+| unsplash             |   O   |
+| irasutoya            |   O   |
 
 ## Developing
 

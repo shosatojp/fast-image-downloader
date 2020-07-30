@@ -37,6 +37,5 @@ def print_sites_info():
     print("| {:<20} | {:^5} |".format('site', 'query'))
     print("| {:-<20} | {:-^5} |".format('', ''))
     for file, name, mod in get_modules():
-        if all(map(lambda e: e in mod, ['info_getter', 'site', 'match'])):
-            query = 'query' in mod and mod['query']
-            print("| {:<20} | {:^5} |".format(mod['site'], 'O' if query else 'X'))
+        query = 'query' in mod and mod['query']
+        print("| {:<20} | {:^5} |".format(mod['site'], 'O' if query else 'X'))
