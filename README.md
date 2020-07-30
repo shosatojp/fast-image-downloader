@@ -1,20 +1,28 @@
 # dlimg
 
+## Install
+
+```sh
+pip3 install dlimg
+```
+
 ## Usage
 
 ```sh
-python3 dlimg.py 'https://example.com/photos?query=dog'
-python3 dlimg.py --site example --query dog
+dlimg 'https://wear.jp/coordinate/'
+dlimg --site google --query dog
 ```
 
 ## Available Sites
 
 | site                 | query |
-|----------------------|-------|
+| -------------------- | ----- |
 | google               |   O   |
 | bing                 |   O   |
 | unsplash             |   O   |
+| anysite              |   X   |
 | irasutoya            |   O   |
+| wear                 |   X   |
 
 ## Developing
 
