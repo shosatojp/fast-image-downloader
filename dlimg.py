@@ -20,7 +20,7 @@ parser.add_argument('--pagestart', '-ps', type=int, default=1, help='page start'
 parser.add_argument('--pageend', '-pe', type=int, default=-1, help='page end')
 parser.add_argument('--count', '-c', type=int, default=-1, help='max count')
 parser.add_argument('--outdir', '-o', default='', help='output directory name')
-parser.add_argument('--basedir', '-b', default='bin', help='output base directory name')
+parser.add_argument('--basedir', '-b', default='', help='output base directory name')
 parser.add_argument('--limit', '-l', default=10, type=int, help='limit of concurrent fetching')
 parser.add_argument('--quality', '-q', default=0, type=int, help='image quality. 0 is the highest.')
 parser.add_argument('--query', '-s', default='',  help='query for search')
