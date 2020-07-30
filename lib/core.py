@@ -10,6 +10,7 @@ import re
 from . import lib
 from . import sites
 import time
+import json
 import stat
 
 
@@ -31,16 +32,28 @@ async def archive_downloader(info_getter, **args):
         i = args['startnum']
         tasks = []
         async for img in imgs:
+            if isinstance(img, dict):
+                imgurl = img['url']
+                data = img['data']
+            else:
+                imgurl = img
+                data = None
+
             filename = args['name_fn']({
                 'number': i,
-                'url': img,
+                'url': imgurl,
                 'ext': ''
             }, **args)
             basename, _ = os.path.splitext(filename)
             file_path = os.path.join(bin_path, filename)
 
             if not lib.exists_prefix(bin_path, basename):
-                task = asyncio.ensure_future(lib.download_img(img, file_path))
+                task = asyncio.ensure_future(lib.download_img(imgurl, file_path))
+                # データあり
+                if data:
+                    json_path = os.path.join(bin_path, basename + '.json')
+                    print(f'writing data -> {json_path}')
+                    json.dump(data, open(json_path, 'wt', encoding='utf-8'))
                 tasks.append(task)
 
             if args['count'] != -1 and i+1 >= args['count']:
