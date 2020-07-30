@@ -89,7 +89,7 @@ async def paged_collector(links_fn, ** args):
         page_num += 1
 
 
-async def fetch(__url: str, **args):
+async def fetch(__url: str, ret={}, **args):
     if args['threading']:
         return await fetch_by_browser2(__url, **args)
 
@@ -98,7 +98,10 @@ async def fetch(__url: str, **args):
         headers['user-agent'] = args['useragent']
 
     async with args['semaphore']:
-        async with args['session'].get(__url, headers=headers) as res:
+        session: aiohttp.client.ClientSession = args['session']
+        async with session.get(__url, headers=headers) as res:
+            ret['realurl'] = res.url
+            print(res.url)
             print('fetched', __url)
             return await res.text()
 
@@ -159,8 +162,8 @@ async def fetch_by_browser(__url: str, **args):
         return result
 
 
-async def fetch_doc(__url: str, **args):
-    html = await fetch(__url, **args)
+async def fetch_doc(__url: str, ret={}, **args):
+    html = await fetch(__url, ret, **args)
     return bs4.BeautifulSoup(html, 'html.parser')
 
 
@@ -226,6 +229,7 @@ async def parallel_for(generator, async_fn, **args):
             for t in done:
                 for img in t.result():
                     yield img
+
 
 def normarize_path(__path: str) -> str:
     return re.sub('[ ]', '_', __path)
