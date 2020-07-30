@@ -1,0 +1,5 @@
+aiohttp
+requests
+bs4
+aiofiles
+selenium
