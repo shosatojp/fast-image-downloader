@@ -22,7 +22,6 @@ executor = concurrent.futures.ThreadPoolExecutor(10)
 
 
 async def download_img(__url, __path):
-    print(__url, 'url')
     try:
         async with concurrent_semaphore:
             async with aiohttp.ClientSession() as session:
