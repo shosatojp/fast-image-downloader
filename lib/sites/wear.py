@@ -5,7 +5,6 @@ import urllib.parse
 
 site = 'wear'
 match = re.compile('https?://wear.jp/.*')
-query = True
 
 
 async def collector(**args):
