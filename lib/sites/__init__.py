@@ -6,7 +6,7 @@ from . import anysites
 
 def get_modules():
     modules = []
-    files = filter(lambda e: not e.startswith('__'), os.listdir('lib/sites'))
+    files = filter(lambda e: not e.startswith('__'), os.listdir(os.path.dirname(__file__)))
     for file in files:
         name = file.replace('.py', '')
         mod = vars(importlib.import_module('lib.sites.'+name))
