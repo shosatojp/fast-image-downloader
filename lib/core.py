@@ -48,7 +48,7 @@ async def archive_downloader(info_getter, **args):
             file_path = os.path.join(bin_path, filename)
 
             if not lib.exists_prefix(bin_path, basename):
-                task = asyncio.ensure_future(lib.download_img(imgurl, file_path))
+                task = asyncio.ensure_future(lib.download_img(imgurl, file_path, **args))
                 # データあり
                 if data:
                     json_path = os.path.join(bin_path, basename + '.json')

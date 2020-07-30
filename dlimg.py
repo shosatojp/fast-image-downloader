@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import asyncio
+from lib.waiter import ConstWaiter, DefaultWaiter, RandomWaiter, select_waiter
 import lib.core
 import lib.sites
 import lib.lib
@@ -28,11 +29,14 @@ parser.add_argument('--query', '-s', default='',  help='query for search')
 parser.add_argument('--site', '-t', default='',  help='site name')
 parser.add_argument('--useragent', '-ua', default='',  help='user agent')
 parser.add_argument('--mods', '-m', action='store_true', default=False,  help='show available modules')
+parser.add_argument('--wait', '-w', default='', nargs='+', type=str, help='')
+
 args = parser.parse_args()
 
 args_dict = vars(args)
 args_dict['name_fn'] = lib.lib.select_name(args_dict['name'])
 args_dict['threading'] = args_dict['selenium']
+args_dict['waiter'] = select_waiter(args_dict['wait'])
 
 if args_dict['mods']:
     lib.sites.print_sites_info()

@@ -19,9 +19,14 @@ import aiohttp.client_exceptions
 
 concurrent_semaphore = asyncio.Semaphore(10)
 executor = concurrent.futures.ThreadPoolExecutor(10)
+waiter_table = {}
 
 
-async def download_img(__url, __path):
+async def download_img(__url, __path, **args):
+    # waiter
+    if 'waiter' in args:
+        await args['waiter'].wait(__url)
+
     try:
         async with concurrent_semaphore:
             async with aiohttp.ClientSession() as session:
@@ -90,6 +95,10 @@ async def paged_collector(links_fn, ** args):
 
 
 async def fetch(__url: str, ret={}, **args):
+    # waiter
+    if 'waiter' in args:
+        await args['waiter'].wait(__url)
+
     if args['threading']:
         return await fetch_by_browser2(__url, **args)
 
@@ -101,7 +110,6 @@ async def fetch(__url: str, ret={}, **args):
         session: aiohttp.client.ClientSession = args['session']
         async with session.get(__url, headers=headers) as res:
             ret['realurl'] = res.url
-            print(res.url)
             print('fetched', __url)
             return await res.text()
 
