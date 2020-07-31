@@ -50,10 +50,11 @@ async def archive_downloader(info_getter, **args):
             if not lib.exists_prefix(bin_path, basename):
                 task = asyncio.ensure_future(lib.download_img(imgurl, file_path, **args))
                 # データあり
-                if data:
+                if not args['nodata'] and data:
                     json_path = os.path.join(bin_path, basename + '.json')
                     print(f'writing data -> {json_path}')
-                    json.dump(data, open(json_path, 'wt', encoding='utf-8'))
+                    with open(json_path, 'wt', encoding='utf-8') as fp:
+                        json.dump(data, fp)
                 tasks.append(task)
 
             if args['count'] != -1 and i+1 >= args['count']:

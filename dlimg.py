@@ -28,6 +28,9 @@ parser.add_argument('--site', '-t', default='',  help='site name')
 parser.add_argument('--useragent', '-ua', default='',  help='user agent')
 parser.add_argument('--mods', '-m', action='store_true', default=False,  help='show available modules')
 parser.add_argument('--wait', '-w', default='', nargs='+', type=str, help='interval for http requests. default is none. `-w 0.5` `-w random 1 2.5`')
+parser.add_argument('--waitlist', '-wl', default='', type=str, help='interval list for wait option. prior than `--wait`')
+parser.add_argument('--nightshift', '-ns', default=1, type=int, help='night shift')
+parser.add_argument('--nodata', default=False, action='store_true', help='')
 
 args = parser.parse_args()
 
@@ -43,7 +46,7 @@ if not (args_dict['url'] or (args_dict['query'] and args_dict['site'])):
 
 args_dict['name_fn'] = lib.lib.select_name(args_dict['name'])
 args_dict['threading'] = args_dict['selenium']
-args_dict['waiter'] = select_waiter(args_dict['wait'])
+args_dict['waiter'] = select_waiter(args_dict['wait'], **args_dict)
 
 info_getter = lib.sites.info_getter_selector(**args_dict)
 loop = asyncio.get_event_loop()

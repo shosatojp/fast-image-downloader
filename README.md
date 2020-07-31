@@ -1,6 +1,6 @@
 # dlimg
 
-## Install
+## Installation
 
 ```sh
 pip3 install dlimg
@@ -9,8 +9,14 @@ pip3 install dlimg
 ## Usage
 
 ```sh
+# download images in url
 dlimg 'https://wear.jp/coordinate/'
+
+# download 'dog' from google
 dlimg --site google --query dog
+
+# download images with one second for interval
+dlimg --site bing --query cat --wait 1
 ```
 
 ## Available Sites
