@@ -20,6 +20,7 @@ import aiohttp.client_exceptions
 concurrent_semaphore = asyncio.Semaphore(10)
 executor = concurrent.futures.ThreadPoolExecutor(10)
 waiter_table = {}
+imgmap = None
 
 CACHE_VERSION = 1
 
@@ -68,24 +69,40 @@ async def download_img(__url, __path, **args):
 
 
 def save_map(__url: str, __filename: str, **args):
-    mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
-    with open(mapfile, 'a+t', encoding='utf-8') as f:
-        f.seek(0)
-        obj = json.loads(f.read() or '{}')
-        obj[__url] = __filename
-    with open(mapfile, 'wt', encoding='utf-8') as f:
-        f.write(json.dumps(obj))
+    global imgmap
+    if args['check']:
+        if not imgmap:
+            imgmap = {}
+        imgmap[__url] = __filename
+    else:
+        mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
+        with open(mapfile, 'a+t', encoding='utf-8') as f:
+            f.seek(0)
+            obj = json.loads(f.read() or '{}')
+            obj[__url] = __filename
+        with open(mapfile, 'wt', encoding='utf-8') as f:
+            f.write(json.dumps(obj))
 
 
 def load_map(__url: str, **args):
-    mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
-    with open(mapfile, 'a+t', encoding='utf-8') as f:
-        f.seek(0)
-        obj = json.loads(f.read() or '{}')
-        if __url in obj and os.path.exists(os.path.join(args['basedir'], args['outdir'], obj[__url])):
-            return True
+    global imgmap
+    if args['check']:
+        if imgmap:
+            return __url in imgmap and os.path.exists(os.path.join(args['basedir'], args['outdir'], imgmap[__url]))
         else:
-            return False
+            mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
+            with open(mapfile, 'rt', encoding='utf-8') as f:
+                imgmap = json.loads(f.read() or '{}')
+
+    else:
+        mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
+        with open(mapfile, 'a+t', encoding='utf-8') as f:
+            f.seek(0)
+            obj = json.loads(f.read() or '{}')
+            if __url in obj and os.path.exists(os.path.join(args['basedir'], args['outdir'], obj[__url])):
+                return True
+            else:
+                return False
 
 
 def single_selector_collector(__url, __selector, __attr='src', **args):
