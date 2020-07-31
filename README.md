@@ -17,6 +17,16 @@ dlimg --site google --query dog
 
 # download images with one second for interval
 dlimg --site bing --query cat --wait 1
+
+# overwrite `--wait` with hoge.json and 3x faster at night(1-6am)
+dlimg --site bing --query cat --wait 1 --waitlist hoge.json --nightshift 3
+```
+
+```json
+{
+    "wear.jp": 5,
+    "cdn.wimg.jp": 1
+}
 ```
 
 ## Available Sites
