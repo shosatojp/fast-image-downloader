@@ -31,6 +31,8 @@ async def archive_downloader(info_getter, **args):
 
         i = args['startnum']
         tasks = []
+        params = {'progress': 0}
+        prog = 0
         async for img in imgs:
             if isinstance(img, dict):
                 imgurl = img['url']
@@ -55,7 +57,13 @@ async def archive_downloader(info_getter, **args):
                     json.dump(data, fp)
 
             if not (lib.exists_prefix(bin_path, basename) or (args['imgmap'] and lib.load_map(imgurl, **args))):
-                task = asyncio.ensure_future(lib.download_img(imgurl, file_path, **args))
+
+                async def runner(imgurl, file_path):
+                    await lib.download_img(imgurl, file_path, **args)
+                    params['progress'] += 1
+                    show_progress(params['progress'], len(tasks))
+
+                task = asyncio.ensure_future(runner(imgurl, file_path))
                 tasks.append(task)
             else:
                 print('skip', imgurl)
@@ -83,3 +91,7 @@ async def archive_downloader(info_getter, **args):
         print(f'downloaded {len(downloaded)} files in {total_time} s / {total_mib} MiB / {int(total_mib/total_time*10)/10} MiB/s')
     except KeyboardInterrupt:
         print('key')
+
+
+def show_progress(__progress: int, __total: int):
+    print(f'  {__progress}/{__total}  {int(__progress/__total*1000)/10}%', end='\r')
