@@ -1,3 +1,5 @@
+from os import tcsetpgrp
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import time
@@ -113,10 +115,21 @@ async def fetch(__url: str, ret={}, **args):
             session: aiohttp.client.ClientSession = args['session']
             async with session.get(__url, headers=headers) as res:
                 ret['realurl'] = res.url
+                text = await res.text()
+                if args['savefetched']:
+                    save_fetched(__url, text, **args)
                 print('fetched', __url)
-                return await res.text()
-    except:
+                return text
+    except Exception as e:
+        print(e)
         print(f'unknown error: skip {__url}')
+
+
+def save_fetched(__url: str, __str: str, **args):
+    filename = urllib.parse.quote(__url, '')
+    fullpath = os.path.join(args['basedir'], args['outdir'], filename+'.html')
+    with open(fullpath, 'wt', encoding='utf-8') as f:
+        f.write(__str)
 
 
 async def fetch_by_browser2(__url: str, **args):
