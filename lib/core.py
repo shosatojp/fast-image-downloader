@@ -49,8 +49,8 @@ async def archive_downloader(info_getter, **args):
             basename, _ = os.path.splitext(filename)
             file_path = os.path.join(bin_path, filename)
 
-            if (not lib.load_map(imgurl, **args) if args['imgmap'] else not lib.exists_prefix(bin_path, basename)):
-
+            exists_file = lib.load_map(imgurl, **args) if args['imgmap'] else not lib.exists_prefix(bin_path, basename)
+            if not exists_file:
                 async def runner(imgurl, file_path):
                     await lib.download_img(imgurl, file_path, **args)
                     params['progress'] += 1
@@ -66,7 +66,7 @@ async def archive_downloader(info_getter, **args):
                 task = asyncio.ensure_future(runner(imgurl, file_path))
                 tasks.append(task)
             else:
-                print('skip', imgurl)
+                print(f'skip: {imgurl} -> {exists_file}')
 
             if args['count'] != -1 and i+1 >= args['count']:
                 break
@@ -74,6 +74,9 @@ async def archive_downloader(info_getter, **args):
             i += 1
 
         downloaded = await asyncio.gather(*tasks)
+
+        if args['check']:
+            lib.save_map_asjson(**args)
 
         total_size = 0
         for e in [e for e in downloaded if e]:

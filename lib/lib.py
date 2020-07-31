@@ -16,6 +16,7 @@ import aiofiles
 import mimetypes
 import concurrent.futures
 import aiohttp.client_exceptions
+import sys
 
 concurrent_semaphore = asyncio.Semaphore(10)
 executor = concurrent.futures.ThreadPoolExecutor(10)
@@ -62,10 +63,10 @@ async def download_img(__url, __path, **args):
             'tmp_path': tmp_path,
         }
     except aiohttp.client_exceptions.TooManyRedirects as e:
-        print(f'TooManyRedirects: skip {__url}')
+        print(f'ERROR: TooManyRedirects: skip {__url}', file=sys.stderr)
     except Exception as e:
-        print(e)
-        print(f'unknown error: skip {__url}')
+        print(f'ERROR: unknown error: skip {__url}', file=sys.stderr)
+        print(e, file=sys.stderr)
 
 
 def save_map(__url: str, __filename: str, **args):
@@ -84,23 +85,30 @@ def save_map(__url: str, __filename: str, **args):
             f.write(json.dumps(obj))
 
 
+def save_map_asjson(**args):
+    mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
+    with open(mapfile, 'wt', encoding='utf-8') as f:
+        json.dump(f)
+
+
 def load_map(__url: str, **args):
     global imgmap
     if args['check']:
-        if imgmap:
-            return __url in imgmap and os.path.exists(os.path.join(args['basedir'], args['outdir'], imgmap[__url]))
-        else:
+        if not imgmap:
             mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
             with open(mapfile, 'rt', encoding='utf-8') as f:
                 imgmap = json.loads(f.read() or '{}')
-
+        if __url in imgmap and os.path.exists(os.path.join(args['basedir'], args['outdir'], imgmap[__url])):
+            return imgmap[__url]
+        else:
+            return False
     else:
         mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
         with open(mapfile, 'a+t', encoding='utf-8') as f:
             f.seek(0)
             obj = json.loads(f.read() or '{}')
             if __url in obj and os.path.exists(os.path.join(args['basedir'], args['outdir'], obj[__url])):
-                return True
+                return obj[__url]
             else:
                 return False
 
@@ -174,8 +182,8 @@ async def fetch(__url: str, ret={}, **args):
                 print('fetched', __url)
                 return text
     except Exception as e:
-        print(e)
-        print(f'unknown error: skip {__url}')
+        print(f'ERROR: unknown error: skip {__url}', file=sys.stderr)
+        print(e, file=sys.stderr)
 
 
 def load_cache(__url: str, **args):
@@ -292,7 +300,11 @@ def exists_prefix(rootdir, prefix):
     pattern = os.path.join(rootdir, prefix) + '.*'
     files = glob.glob(pattern)
     files = list(filter(lambda e: not e.endswith('.json'), files))
-    return len(files) != 0
+    if len(files) > 0:
+        return os.path.basename(files[0])
+    else:
+        return False
+    # return len(files) != 0
 
 
 async def parallel_for(generator, async_fn, **args):
