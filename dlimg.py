@@ -31,9 +31,9 @@ parser.add_argument('--wait', '-w', default='', nargs='+', type=str, help='inter
 parser.add_argument('--waitlist', '-wl', default='', type=str, help='interval list for wait option. prior than `--wait`')
 parser.add_argument('--nightshift', '-ns', default=1, type=int, help='night shift')
 parser.add_argument('--nodata', default=False, action='store_true', help='')
-parser.add_argument('--savefetched', '-S', default=False, action='store_true', help='')
-parser.add_argument('--usecache', '-U', default=False, action='store_true', help='')
-parser.add_argument('--imgmap', '-M', default=False, action='store_true', help='')
+parser.add_argument('--savefetched', '-S', default=False, action='store_true', help='cache fetched documents (html, json, ...)')
+parser.add_argument('--usecache', '-U', default=False, action='store_true', help='use cached documents to reduce requests')
+parser.add_argument('--imgmap', '-M', default=False, action='store_true', help='save and use url-path map data for images to avoid saving duplicate images')
 
 args = parser.parse_args()
 
