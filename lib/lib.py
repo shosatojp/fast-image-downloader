@@ -88,7 +88,7 @@ def save_map(__url: str, __filename: str, **args):
 def save_map_asjson(**args):
     mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
     with open(mapfile, 'wt', encoding='utf-8') as f:
-        json.dump(f)
+        json.dump(imgmap, f)
 
 
 def load_map(__url: str, **args):
