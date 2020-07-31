@@ -48,7 +48,7 @@ async def archive_downloader(info_getter, **args):
             basename, _ = os.path.splitext(filename)
             file_path = os.path.join(bin_path, filename)
 
-            exists_file = lib.load_map(imgurl, **args) if args['imgmap'] else not lib.exists_prefix(bin_path, basename)
+            exists_file = lib.load_map(imgurl, **args) if args['imgmap'] else lib.exists_prefix(bin_path, basename)
             if not exists_file:
                 async def runner(imgurl, file_path):
                     await lib.download_img(imgurl, file_path, **args)
