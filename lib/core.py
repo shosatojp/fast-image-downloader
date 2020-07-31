@@ -32,7 +32,6 @@ async def archive_downloader(info_getter, **args):
         i = args['startnum']
         tasks = []
         params = {'progress': 0}
-        prog = 0
         async for img in imgs:
             if isinstance(img, dict):
                 imgurl = img['url']
