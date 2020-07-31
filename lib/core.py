@@ -47,15 +47,18 @@ async def archive_downloader(info_getter, **args):
             basename, _ = os.path.splitext(filename)
             file_path = os.path.join(bin_path, filename)
 
-            if not lib.exists_prefix(bin_path, basename):
+            # データあり
+            if not args['nodata'] and data:
+                json_path = os.path.join(bin_path, basename + '.json')
+                print(f'writing data -> {json_path}')
+                with open(json_path, 'wt', encoding='utf-8') as fp:
+                    json.dump(data, fp)
+
+            if not (lib.exists_prefix(bin_path, basename) or (args['imgmap'] and lib.load_map(imgurl, **args))):
                 task = asyncio.ensure_future(lib.download_img(imgurl, file_path, **args))
-                # データあり
-                if not args['nodata'] and data:
-                    json_path = os.path.join(bin_path, basename + '.json')
-                    print(f'writing data -> {json_path}')
-                    with open(json_path, 'wt', encoding='utf-8') as fp:
-                        json.dump(data, fp)
                 tasks.append(task)
+            else:
+                print('skip', imgurl)
 
             if args['count'] != -1 and i+1 >= args['count']:
                 break
@@ -75,7 +78,7 @@ async def archive_downloader(info_getter, **args):
 
         await args['session'].close()
 
-        total_time = int((time.time() - start)*10)/10
+        total_time = int((time.time() - start)*10)/10 + 1e-3
         total_mib = int(total_size/1024/1024 * 10)/10
         print(f'downloaded {len(downloaded)} files in {total_time} s / {total_mib} MiB / {int(total_mib/total_time*10)/10} MiB/s')
     except KeyboardInterrupt:

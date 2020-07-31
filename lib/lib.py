@@ -1,8 +1,6 @@
 import json
-from os import tcsetpgrp
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
-import threading
 import time
 import glob
 import re
@@ -12,7 +10,6 @@ import asyncio
 import shutil
 import urllib
 import aiohttp
-import sys
 import random
 import string
 import aiofiles
@@ -55,14 +52,40 @@ async def download_img(__url, __path, **args):
         if os.path.exists(tmp_path):
             shutil.move(tmp_path, __path)
 
+        # save mapdata
+        if args['imgmap']:
+            save_map(__url, filename, **args)
+
         return {
             'path': __path,
             'tmp_path': tmp_path,
         }
     except aiohttp.client_exceptions.TooManyRedirects as e:
         print(f'TooManyRedirects: skip {__url}')
-    except:
+    except Exception as e:
+        print(e)
         print(f'unknown error: skip {__url}')
+
+
+def save_map(__url: str, __filename: str, **args):
+    mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
+    with open(mapfile, 'a+t', encoding='utf-8') as f:
+        f.seek(0)
+        obj = json.loads(f.read() or '{}')
+        obj[__url] = __filename
+    with open(mapfile, 'wt', encoding='utf-8') as f:
+        f.write(json.dumps(obj))
+
+
+def load_map(__url: str, **args):
+    mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
+    with open(mapfile, 'a+t', encoding='utf-8') as f:
+        f.seek(0)
+        obj = json.loads(f.read() or '{}')
+        if __url in obj and os.path.exists(os.path.join(args['basedir'], args['outdir'], obj[__url])):
+            return True
+        else:
+            return False
 
 
 def single_selector_collector(__url, __selector, __attr='src', **args):
@@ -251,6 +274,7 @@ def select_name(src):
 def exists_prefix(rootdir, prefix):
     pattern = os.path.join(rootdir, prefix) + '.*'
     files = glob.glob(pattern)
+    files = list(filter(lambda e: not e.endswith('.json'), files))
     return len(files) != 0
 
 

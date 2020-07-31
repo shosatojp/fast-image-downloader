@@ -33,6 +33,7 @@ parser.add_argument('--nightshift', '-ns', default=1, type=int, help='night shif
 parser.add_argument('--nodata', default=False, action='store_true', help='')
 parser.add_argument('--savefetched', '-S', default=False, action='store_true', help='')
 parser.add_argument('--usecache', '-U', default=False, action='store_true', help='')
+parser.add_argument('--imgmap', '-M', default=False, action='store_true', help='')
 
 args = parser.parse_args()
 
