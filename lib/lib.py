@@ -56,6 +56,8 @@ async def download_img(__url, __path, **args):
         }
     except aiohttp.client_exceptions.TooManyRedirects as e:
         print(f'TooManyRedirects: skip {__url}')
+    except:
+        print(f'unknown error: skip {__url}')
 
 
 def single_selector_collector(__url, __selector, __attr='src', **args):
@@ -106,12 +108,15 @@ async def fetch(__url: str, ret={}, **args):
     if 'useragent' in args:
         headers['user-agent'] = args['useragent']
 
-    async with args['semaphore']:
-        session: aiohttp.client.ClientSession = args['session']
-        async with session.get(__url, headers=headers) as res:
-            ret['realurl'] = res.url
-            print('fetched', __url)
-            return await res.text()
+    try:
+        async with args['semaphore']:
+            session: aiohttp.client.ClientSession = args['session']
+            async with session.get(__url, headers=headers) as res:
+                ret['realurl'] = res.url
+                print('fetched', __url)
+                return await res.text()
+    except:
+        print(f'unknown error: skip {__url}')
 
 
 async def fetch_by_browser2(__url: str, **args):
