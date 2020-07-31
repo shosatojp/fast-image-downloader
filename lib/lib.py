@@ -1,3 +1,4 @@
+import json
 from os import tcsetpgrp
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
@@ -22,6 +23,8 @@ import aiohttp.client_exceptions
 concurrent_semaphore = asyncio.Semaphore(10)
 executor = concurrent.futures.ThreadPoolExecutor(10)
 waiter_table = {}
+
+CACHE_VERSION = 1
 
 
 async def download_img(__url, __path, **args):
@@ -99,6 +102,13 @@ async def paged_collector(links_fn, ** args):
 
 
 async def fetch(__url: str, ret={}, **args):
+    if args['usecache']:
+        obj = load_cache(__url, **args)
+        if obj:
+            print('use cached', __url)
+            ret['realurl'] = obj['realurl']
+            return obj['body']
+
     # waiter
     if 'waiter' in args:
         await args['waiter'].wait(__url)
@@ -117,7 +127,10 @@ async def fetch(__url: str, ret={}, **args):
                 ret['realurl'] = res.url
                 text = await res.text()
                 if args['savefetched']:
-                    save_fetched(__url, text, **args)
+                    save_fetched(__url, {
+                        'body': text,
+                        'realurl': str(res.url)
+                    }, **args)
                 print('fetched', __url)
                 return text
     except Exception as e:
@@ -125,11 +138,26 @@ async def fetch(__url: str, ret={}, **args):
         print(f'unknown error: skip {__url}')
 
 
-def save_fetched(__url: str, __str: str, **args):
+def load_cache(__url: str, **args):
     filename = urllib.parse.quote(__url, '')
-    fullpath = os.path.join(args['basedir'], args['outdir'], filename+'.html')
+    fullpath = os.path.join(args['basedir'], args['outdir'], filename+'.json')
+    if os.path.exists(fullpath):
+        with open(fullpath, 'rt', encoding='utf-8') as f:
+            obj = json.load(f)
+            if 'cache_version' in obj and obj['cache_version'] == CACHE_VERSION:
+                return obj
+            else:
+                return None
+    else:
+        return None
+
+
+def save_fetched(__url: str, __obj, **args):
+    filename = urllib.parse.quote(__url, '')
+    fullpath = os.path.join(args['basedir'], args['outdir'], filename+'.json')
+    __obj['cache_version'] = CACHE_VERSION
     with open(fullpath, 'wt', encoding='utf-8') as f:
-        f.write(__str)
+        json.dump(__obj, f)
 
 
 async def fetch_by_browser2(__url: str, **args):
