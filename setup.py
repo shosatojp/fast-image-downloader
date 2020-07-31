@@ -19,5 +19,13 @@ setuptools.setup(
         'Operating System :: OS Independent',
     ],
     python_requires='>=3.6',
-    scripts=['dlimg', 'dlimg.py']
+    scripts=['dlimg', 'dlimg.py'],
+    install_requires=[
+        'aiohttp',
+        'requests',
+        'bs4',
+        'aiofiles',
+        'selenium',
+        'tqdm',
+    ],
 )
