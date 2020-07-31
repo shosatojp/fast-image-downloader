@@ -29,21 +29,24 @@ class DefaultWaiter():
 
         # night shift
         hour = time.localtime().tm_hour
-        if self.nightshift and 1 <= hour <= 6:
+        if self.nightshift and 1 <= hour < 6:
             _sec /= self.nightshift
 
-        await lock.acquire()
-        now = time.time()
         if host in self.table:
-            if now > self.table[host] + _sec:
-                self.table[host] = now
+            await self.table[host]['lock'].acquire()
+            now = time.time()
+            if now > self.table[host]['time'] + _sec:
+                self.table[host]['time'] = now
             else:
-                ws = self.table[host] + _sec - now
+                ws = max(_sec - (now - self.table[host]['time']), 0)
                 await asyncio.sleep(ws)
-                self.table[host] = time.time()
+                self.table[host]['time'] = time.time()
+            self.table[host]['lock'].release()
         else:
-            self.table[host] = now
-        lock.release()
+            self.table[host] = {
+                'lock': asyncio.Lock(),
+                'time': time.time()
+            }
 
 
 class ConstWaiter(DefaultWaiter):
