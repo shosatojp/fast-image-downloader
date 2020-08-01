@@ -5,7 +5,7 @@ with open('README.md', 'rt', encoding='utf-8') as fh:
 
 setuptools.setup(
     name='dlimg',
-    version='0.1.2',
+    version='0.1.3',
     author='shosatojp',
     author_email='me@shosato.jp',
     description='Fast image downloader',
@@ -19,13 +19,12 @@ setuptools.setup(
         'Operating System :: OS Independent',
     ],
     python_requires='>=3.6',
-    scripts=['dlimg', 'dlimg.py'],
+    scripts=['dlimg'],
     install_requires=[
         'aiohttp',
         'requests',
         'bs4',
         'aiofiles',
         'selenium',
-        'tqdm',
     ],
 )
