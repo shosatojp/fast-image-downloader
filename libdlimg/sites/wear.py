@@ -102,8 +102,8 @@ async def gallery_collector(**args):
         async with lib.concurrent_semaphore:
             yield img
 
-
 async def collector(**args):
+    print('----')
     if re.match('https?://wear.jp/user/.*', args['url']):
         async for e in user_collector(**args):
             yield e

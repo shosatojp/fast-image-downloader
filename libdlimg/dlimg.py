@@ -2,9 +2,9 @@
 import sys
 import asyncio
 from libdlimg.waiter import select_waiter
-import lib.core
-import lib.sites
-import lib.lib
+import libdlimg.core
+import libdlimg.sites
+import libdlimg.lib
 import argparse
 import signal
 from libdlimg.error import FATAL, INFO, WARN, report
@@ -46,23 +46,23 @@ args_dict = vars(args)
 
 # 引数チェック
 if args_dict['mods']:
-    lib.sites.print_sites_info()
+    libdlimg.sites.print_sites_info()
     exit(0)
 if not (args_dict['url'] or (args_dict['query'] and args_dict['site'])):
     parser.print_usage()
     exit(1)
 
-args_dict['name_fn'] = lib.lib.select_name(args_dict['name'])
+args_dict['name_fn'] = libdlimg.lib.select_name(args_dict['name'])
 args_dict['threading'] = args_dict['selenium']
 args_dict['waiter'] = select_waiter(args_dict['wait'], **args_dict)
 
 signal.signal(signal.SIGINT, lambda n, f: report(FATAL, 'SIGINT', **args_dict) or exit(1))
 
-info_getter = lib.sites.info_getter_selector(**args_dict)
+info_getter = libdlimg.sites.info_getter_selector(**args_dict)
 loop = asyncio.get_event_loop()
 
 report(WARN, f'start crawling: `{" ".join(sys.argv)}`', **args_dict)
 loop.run_until_complete(
-    lib.core.archive_downloader(info_getter,
+    libdlimg.core.archive_downloader(info_getter,
                                 **args_dict)
 )

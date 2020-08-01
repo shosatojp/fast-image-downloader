@@ -5,7 +5,7 @@ with open('README.md', 'rt', encoding='utf-8') as fh:
 
 setuptools.setup(
     name='dlimg',
-    version='0.1.4',
+    version='0.1.5',
     author='shosatojp',
     author_email='me@shosato.jp',
     description='Fast image downloader',
