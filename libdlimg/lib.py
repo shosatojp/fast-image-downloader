@@ -61,8 +61,7 @@ async def download_img(__url, __path, **args):
             shutil.move(tmp_path, __path)
 
         # save mapdata
-        if args['imgmap']:
-            save_map(__url, filename, **args)
+        write_map(__url, filename, **args)
 
         return {
             'path': __path,
@@ -72,49 +71,45 @@ async def download_img(__url, __path, **args):
         report(ERROR, f'skip {__url} {e}\n{traceback.format_exc()}', type=NETWORK, **args)
         return None
 
+WRITE_MAP_COUNT = 0
+SAVE_MAP_PER = 10
 
-def save_map(__url: str, __filename: str, **args):
+
+def write_map(__url: str, __filename: str, **args):
     global imgmap
-    if args['check']:
-        if not imgmap:
-            imgmap = {}
-        imgmap[__url] = __filename
-    else:
-        mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
-        with open(mapfile, 'a+t', encoding='utf-8') as f:
-            f.seek(0)
-            obj = json.loads(f.read() or '{}')
-            obj[__url] = __filename
-        with open(mapfile, 'wt', encoding='utf-8') as f:
-            f.write(json.dumps(obj))
+    global WRITE_MAP_COUNT
+    imgmap[__url] = __filename
+
+    WRITE_MAP_COUNT += 1
+    if WRITE_MAP_COUNT % SAVE_MAP_PER == 0:
+        save_map(**args)
 
 
-def save_map_asjson(**args):
+def save_map(**args):
     mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
     with open(mapfile, 'wt', encoding='utf-8') as f:
         json.dump(imgmap, f)
 
 
-def load_map(__url: str, **args):
+def load_map(**args):
     global imgmap
-    if args['check']:
-        if not imgmap:
-            mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
-            with open(mapfile, 'rt', encoding='utf-8') as f:
-                imgmap = json.loads(f.read() or '{}')
-        if __url in imgmap and os.path.exists(os.path.join(args['basedir'], args['outdir'], imgmap[__url])):
-            return imgmap[__url]
-        else:
-            return False
+    directory = os.path.join(args['basedir'], args['outdir'])
+    mapfile = os.path.join(directory, 'map.json')
+    if os.path.exists(mapfile):
+        with open(mapfile, 'rt', encoding='utf-8') as f:
+            imgmap = json.loads(f.read() or '{}')
     else:
-        mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
-        with open(mapfile, 'a+t', encoding='utf-8') as f:
-            f.seek(0)
-            obj = json.loads(f.read() or '{}')
-            if __url in obj and os.path.exists(os.path.join(args['basedir'], args['outdir'], obj[__url])):
-                return obj[__url]
-            else:
-                return False
+        imgmap = {}
+
+
+def read_map(__url: str, **args):
+    global imgmap
+    directory = os.path.join(args['basedir'], args['outdir'])
+
+    if __url in imgmap and os.path.exists(os.path.join(directory, imgmap[__url])):
+        return imgmap[__url]
+    else:
+        return False
 
 
 def single_selector_collector(__url, __selector, __attr='src', **args):

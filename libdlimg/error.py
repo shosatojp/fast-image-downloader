@@ -10,7 +10,7 @@ FATAL = 5
 # リアルタイムで通知したいので同期的に
 
 
-NETWORK = '='
+NETWORK = '>'
 FILEIO = '.'
 
 

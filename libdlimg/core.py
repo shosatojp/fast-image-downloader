@@ -31,6 +31,8 @@ async def archive_downloader(info_getter, **args):
         bin_path = os.path.join(args['basedir'], args['outdir'] or normarize_path(title))
         os.makedirs(bin_path, exist_ok=True)
 
+        lib.load_map(**args)
+
         i = args['startnum']
         tasks = []
         params = {'progress': 0}
@@ -57,12 +59,13 @@ async def archive_downloader(info_getter, **args):
                 with open(json_path, 'wt', encoding='utf-8') as fp:
                     json.dump(data, fp)
 
-            if args['verify']:
-                f = lib.exists_prefix(bin_path, basename)
-                if f:
-                    lib.save_map(imgurl, f, **args)
+            # map.jsonの整合性確認
+            exists_file = lib.read_map(imgurl, **args)
+            if not exists_file:
+                exists_file = lib.exists_prefix(bin_path, basename)
+                if exists_file:
+                    lib.write_map(imgurl, exists_file, **args)
 
-            exists_file = lib.load_map(imgurl, **args) if args['imgmap'] else lib.exists_prefix(bin_path, basename)
             if not exists_file:
                 async def runner(imgurl, file_path):
                     await lib.download_img(imgurl, file_path, **args)
@@ -81,15 +84,14 @@ async def archive_downloader(info_getter, **args):
 
         downloaded = await asyncio.gather(*tasks)
 
-        if args['check']:
-            lib.save_map_asjson(**args)
+        lib.save_map(**args)
 
         total_size = 0
         for e in [e for e in downloaded if e]:
             total_size += os.stat(e['path']).st_size
 
         if args['archive']:
-            report(INFO, f'archiving to {bin_path+".zip"}',type=FILEIO, **args)
+            report(INFO, f'archiving to {bin_path+".zip"}', type=FILEIO, **args)
             shutil.make_archive(bin_path, 'zip', root_dir=bin_path)
             shutil.rmtree(bin_path)
 
