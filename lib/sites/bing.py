@@ -1,3 +1,5 @@
+from logging import FATAL
+from lib.error import ERROR, report
 import re
 from .. import lib
 import urllib.parse
@@ -8,7 +10,7 @@ query = True
 
 
 async def collector(**args):
-    async def links_fn(page_num):
+    async def links_fn(page_num, **args):
         if args['query']:
             url = f'https://www.bing.com/images/search?q={urllib.parse.quote(args["query"])}&first={28*(page_num-1)+1}&count={28}'
         else:
@@ -20,7 +22,7 @@ async def collector(**args):
         elif args['quality'] == 1:
             return list(map(lambda e: e['src'], doc.select('a.thumb img')))
         else:
-            print('no such quality for bing (0-1)')
+            report(FATAL, 'no such quality for bing (0-1)', **args)
             exit(1)
 
     async for img in lib.paged_collector(links_fn=links_fn, ** args):

@@ -1,3 +1,5 @@
+import argparse
+from lib.error import FATAL, INFO, PROGRESS, report
 from lib.lib import normarize_path
 import sys
 import aiohttp
@@ -23,7 +25,7 @@ async def archive_downloader(info_getter, **args):
 
         info = await info_getter(**args)
         title = re.sub('[<>:"/\\|?*]', '', info['title']).strip()
-        print('title', title)
+        report(INFO, f'title = {title}', **args)
         imgs = info['imgs']
 
         bin_path = os.path.join(args['basedir'], args['outdir'] or normarize_path(title))
@@ -51,7 +53,7 @@ async def archive_downloader(info_getter, **args):
             # データあり
             if not args['nodata'] and data:
                 json_path = os.path.join(bin_path, basename + '.json')
-                print(f'writing data -> {json_path}')
+                report(INFO, f'writing data -> {json_path}', **args)
                 with open(json_path, 'wt', encoding='utf-8') as fp:
                     json.dump(data, fp)
 
@@ -60,12 +62,12 @@ async def archive_downloader(info_getter, **args):
                 async def runner(imgurl, file_path):
                     await lib.download_img(imgurl, file_path, **args)
                     params['progress'] += 1
-                    show_progress(params['progress'], len(tasks))
+                    show_progress(params['progress'], len(tasks), **args)
 
                 task = asyncio.ensure_future(runner(imgurl, file_path))
                 tasks.append(task)
             else:
-                print(f'skip: {imgurl} -> {exists_file}')
+                report(INFO, f'skip: {imgurl} -> {exists_file}', **args)
 
             if args['count'] != -1 and i+1 >= args['count']:
                 break
@@ -82,7 +84,7 @@ async def archive_downloader(info_getter, **args):
             total_size += os.stat(e['path']).st_size
 
         if args['archive']:
-            print('archiving to ', bin_path+'.zip')
+            report(INFO, f'archiving to {bin_path+".zip"}', **args)
             shutil.make_archive(bin_path, 'zip', root_dir=bin_path)
             shutil.rmtree(bin_path)
 
@@ -90,10 +92,10 @@ async def archive_downloader(info_getter, **args):
 
         total_time = int((time.time() - start)*10)/10 + 1e-3
         total_mib = int(total_size/1024/1024 * 10)/10
-        print(f'downloaded {len(downloaded)} files in {total_time} s / {total_mib} MiB / {int(total_mib/total_time*10)/10} MiB/s')
+        report(FATAL, f'downloaded {len(downloaded)} files in {total_time} s / {total_mib} MiB / {int(total_mib/total_time*10)/10} MiB/s', **args)
     except KeyboardInterrupt:
         print('key')
 
 
-def show_progress(__progress: int, __total: int):
-    print(f'  {__progress}/{__total}  {int(__progress/__total*1000)/10}%', end='\r')
+def show_progress(__progress: int, __total: int, **args):
+    report(PROGRESS, f'  {__progress}/{__total}  {int(__progress/__total*1000)/10}%', end='\r', **args)

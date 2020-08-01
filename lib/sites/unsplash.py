@@ -15,7 +15,7 @@ async def collector(**args):
 
     qualities = ['raw', 'full', 'regular', 'small', 'thumb']
 
-    async def links_fn(page_num):
+    async def links_fn(page_num, **args):
         if args['query']:
             url = f'https://unsplash.com/napi/search/photos?query={urllib.parse.quote(args["query"])}&page={page_num}'
         else:

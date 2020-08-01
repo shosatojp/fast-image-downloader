@@ -16,7 +16,9 @@ import aiofiles
 import mimetypes
 import concurrent.futures
 import aiohttp.client_exceptions
+import traceback
 import sys
+from lib.error import ERROR, INFO, report
 
 concurrent_semaphore = asyncio.Semaphore(10)
 executor = concurrent.futures.ThreadPoolExecutor(10)
@@ -35,21 +37,25 @@ async def download_img(__url, __path, **args):
         async with concurrent_semaphore:
             async with aiohttp.ClientSession() as session:
                 async with session.get(__url) as res:
-                    _, ext = os.path.splitext(__path)
-                    if not ext:
-                        __path += mimetypes.guess_extension(res.content_type) or '.jpg'
+                    if res.status == 200:
+                        _, ext = os.path.splitext(__path)
+                        if not ext:
+                            __path += mimetypes.guess_extension(res.content_type) or '.jpg'
 
-                    print(f'downloading {__url} -> {__path}')
+                        report(INFO, f'downloading {__url} -> {__path}', **args)
 
-                    dirname, filename = os.path.split(__path)
-                    tmp_path = f'{dirname}/.{filename}'
+                        dirname, filename = os.path.split(__path)
+                        tmp_path = f'{dirname}/.{filename}'
 
-                    async with aiofiles.open(tmp_path, 'wb') as fd:
-                        while True:
-                            chunk = await res.content.read(1024)
-                            if not chunk:
-                                break
-                            await fd.write(chunk)
+                        async with aiofiles.open(tmp_path, 'wb') as fd:
+                            while True:
+                                chunk = await res.content.read(1024)
+                                if not chunk:
+                                    break
+                                await fd.write(chunk)
+                    else:
+                        report(ERROR, f'download_img: {res.status} {__url}', **args)
+                        return None
 
         if os.path.exists(tmp_path):
             shutil.move(tmp_path, __path)
@@ -62,11 +68,9 @@ async def download_img(__url, __path, **args):
             'path': __path,
             'tmp_path': tmp_path,
         }
-    except aiohttp.client_exceptions.TooManyRedirects as e:
-        print(f'ERROR: TooManyRedirects: skip {__url}', file=sys.stderr)
     except Exception as e:
-        print(f'ERROR: unknown error: skip {__url}', file=sys.stderr)
-        print(e, file=sys.stderr)
+        report(ERROR, f'skip {__url} {e}\n{traceback.format_exc()}', **args)
+        return None
 
 
 def save_map(__url: str, __filename: str, **args):
@@ -157,7 +161,7 @@ async def fetch(__url: str, ret={}, **args):
     if args['usecache']:
         obj = load_cache(__url, **args)
         if obj:
-            print('use cached', __url)
+            report(INFO, f'use cached {__url}', **args)
             ret['realurl'] = obj['realurl']
             return obj['body']
 
@@ -176,18 +180,21 @@ async def fetch(__url: str, ret={}, **args):
         async with args['semaphore']:
             session: aiohttp.client.ClientSession = args['session']
             async with session.get(__url, headers=headers) as res:
-                ret['realurl'] = res.url
-                text = await res.text()
-                if args['savefetched']:
-                    save_fetched(__url, {
-                        'body': text,
-                        'realurl': str(res.url)
-                    }, **args)
-                print('fetched', __url)
-                return text
+                if res.status == 200:
+                    ret['realurl'] = res.url
+                    text = await res.text()
+                    if args['savefetched']:
+                        save_fetched(__url, {
+                            'body': text,
+                            'realurl': str(res.url)
+                        }, **args)
+                    report(INFO, f'fetched: {__url}', **args)
+                    return text
+                else:
+                    report(ERROR, f'fetch(): {__url}', **args)
+                    return None
     except Exception as e:
-        print(f'ERROR: unknown error: skip {__url}', file=sys.stderr)
-        print(e, file=sys.stderr)
+        report(ERROR, f'skip {__url} {e}', file=sys.stderr, **args)
 
 
 def load_cache(__url: str, **args):
@@ -232,7 +239,7 @@ async def fetch_by_browser2(__url: str, **args):
         driver.quit()
         return html
 
-    print('fetched', __url)
+    report(INFO, f'fetched {__url}', **args)
     return get()
 
 

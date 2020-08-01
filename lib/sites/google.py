@@ -9,7 +9,7 @@ query = True
 
 async def collector(**args):
 
-    async def links_fn(page_num):
+    async def links_fn(page_num, **args):
         if args['query']:
             url = f'https://www.google.com/search?tbm=isch&q={urllib.parse.quote(args["query"])}&start={20*(page_num-1)}'
         else:

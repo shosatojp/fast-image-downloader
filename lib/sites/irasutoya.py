@@ -18,7 +18,7 @@ async def second_and_third(__url, **args):
 
 
 async def collector(**args):
-    async def links_fn(page_num):
+    async def links_fn(page_num, **args):
         if args['query']:
             url = f'https://www.irasutoya.com/search?q={urllib.parse.quote(args["query"])}&start={20*(page_num-1)}'
         else:

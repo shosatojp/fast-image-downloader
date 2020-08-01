@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import sys
 import asyncio
 from lib.waiter import select_waiter
 import lib.core
@@ -6,6 +7,7 @@ import lib.sites
 import lib.lib
 import argparse
 import signal
+from lib.error import INFO, WARN, report
 
 signal.signal(signal.SIGINT, lambda n, f: exit(1))
 
@@ -35,6 +37,9 @@ parser.add_argument('--savefetched', '-S', default=False, action='store_true', h
 parser.add_argument('--usecache', '-U', default=False, action='store_true', help='use cached documents to reduce requests')
 parser.add_argument('--imgmap', '-M', default=False, action='store_true', help='save and use url-path map data for images to avoid saving duplicate images')
 parser.add_argument('--check', '-C', default=False, action='store_true', help='check mode')
+parser.add_argument('--handler', '-H', default='', type=str, help='error handler executable')
+parser.add_argument('--handlelevel', '-HL', default='', type=int, help='log level')
+parser.add_argument('--loglevel', '-LL', default='', type=int, help='log level')
 
 args = parser.parse_args()
 
@@ -54,6 +59,8 @@ args_dict['waiter'] = select_waiter(args_dict['wait'], **args_dict)
 
 info_getter = lib.sites.info_getter_selector(**args_dict)
 loop = asyncio.get_event_loop()
+
+report(WARN, f'starting crawling: `{" ".join(sys.argv)}`', **args_dict)
 loop.run_until_complete(
     lib.core.archive_downloader(info_getter,
                                 **args_dict)
