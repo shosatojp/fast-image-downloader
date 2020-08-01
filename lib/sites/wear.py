@@ -52,7 +52,7 @@ async def user_links_fn(page_num, **args):
 
 async def user_collector(**args):
     async for user in lib.paged_collector(links_fn=user_links_fn, ** args):
-        async for img in lib.paged_collector(links_fn=gallery_links_fn, params=user, ** args):
+        async for img in lib.paged_collector(links_fn=gallery_links_fn, ps=1, pe=-1, params=user, ** args):
             async with lib.concurrent_semaphore:
                 yield img
 

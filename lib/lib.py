@@ -137,9 +137,9 @@ async def multiple_selector(params, **args):
     return list(map(lambda e: e[params['attr']], doc.select(params['selector'])))
 
 
-async def paged_collector(links_fn, params=None, ** args):
-    page_num = args['pagestart'] if 'pagestart' in args else 1
-    page_end = args['pageend'] if 'pageend' in args else -1
+async def paged_collector(links_fn, ps=None, pe=None, params=None, ** args):
+    page_num = ps if ps != None else (args['pagestart'] if 'pagestart' in args else 1)
+    page_end = pe if pe != None else (args['pageend'] if 'pageend' in args else -1)
     while True:
         if params:
             links = await links_fn(page_num, params, **args)
