@@ -34,8 +34,6 @@ parser.add_argument('--nightshift', '-ns', default=1, type=int, help='night shif
 parser.add_argument('--nodata', default=False, action='store_true', help='')
 parser.add_argument('--savefetched', '-S', default=False, action='store_true', help='cache fetched documents (html, json, ...)')
 parser.add_argument('--usecache', '-U', default=False, action='store_true', help='use cached documents to reduce requests')
-# parser.add_argument('--imgmap', '-M', default=False, action='store_true', help='save and use url-path map data for images to avoid saving duplicate images')
-# parser.add_argument('--check', '-C', default=False, action='store_true', help='check mode, on memory map')
 parser.add_argument('--verify', '-V', default=False, action='store_true', help='verify map')
 parser.add_argument('--handler', '-H', default='', type=str, help='error handler executable')
 parser.add_argument('--handlelevel', '-HL', default=3, type=int, help='log level')

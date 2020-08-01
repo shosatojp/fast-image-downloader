@@ -35,6 +35,7 @@ async def archive_downloader(info_getter, **args):
 
         i = args['startnum']
         tasks = []
+        # async runnerに参照で渡す
         params = {'progress': 0}
         async for img in imgs:
             if isinstance(img, dict):
@@ -66,6 +67,7 @@ async def archive_downloader(info_getter, **args):
                 if exists_file:
                     lib.write_map(imgurl, exists_file, **args)
 
+            # ファイルが存在しない場合は非同期ダウンロード
             if not exists_file:
                 async def runner(imgurl, file_path):
                     await lib.download_img(imgurl, file_path, **args)
@@ -97,9 +99,9 @@ async def archive_downloader(info_getter, **args):
 
         await args['session'].close()
 
-        total_time = int((time.time() - start)*10)/10 + 1e-3
+        total_time = int((time.time() - start)*10)/10
         total_mib = int(total_size/1024/1024 * 10)/10
-        report(FATAL, f'downloaded {len(downloaded)} files in {total_time} s / {total_mib} MiB / {int(total_mib/total_time*10)/10} MiB/s', **args)
+        report(FATAL, f'downloaded {len(downloaded)} files in {total_time} s / {total_mib} MiB / {int(total_mib/(total_time + 1e-3)*10)/10} MiB/s', **args)
     except KeyboardInterrupt:
         print('key')
 
