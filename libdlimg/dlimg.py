@@ -36,6 +36,7 @@ parser.add_argument('--savefetched', '-S', default=False, action='store_true', h
 parser.add_argument('--usecache', '-U', default=False, action='store_true', help='use cached documents to reduce requests')
 parser.add_argument('--imgmap', '-M', default=False, action='store_true', help='save and use url-path map data for images to avoid saving duplicate images')
 parser.add_argument('--check', '-C', default=False, action='store_true', help='check mode')
+parser.add_argument('--verify', '-V', default=False, action='store_true', help='verify map')
 parser.add_argument('--handler', '-H', default='', type=str, help='error handler executable')
 parser.add_argument('--handlelevel', '-HL', default=3, type=int, help='log level')
 parser.add_argument('--loglevel', '-LL', default=2, type=int, help='log level')

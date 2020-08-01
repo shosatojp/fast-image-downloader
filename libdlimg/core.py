@@ -57,7 +57,7 @@ async def archive_downloader(info_getter, **args):
                 with open(json_path, 'wt', encoding='utf-8') as fp:
                     json.dump(data, fp)
 
-            if args['check']:
+            if args['verify']:
                 f = lib.exists_prefix(bin_path, basename)
                 if f:
                     lib.save_map(imgurl, f, **args)
