@@ -105,7 +105,8 @@ def load_map(__url: str, **args):
         if __url in imgmap and os.path.exists(os.path.join(args['basedir'], args['outdir'], imgmap[__url])):
             return imgmap[__url]
         else:
-            return False
+            exist_file = exists_prefix(os.path.join(args['basedir'], args['outdir']))
+            return exist_file
     else:
         mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
         with open(mapfile, 'a+t', encoding='utf-8') as f:
