@@ -1,5 +1,5 @@
 import argparse
-from libdlimg.error import FATAL, INFO, PROGRESS, report
+from libdlimg.error import FATAL, INFO, FILEIO, PROGRESS, report
 from libdlimg.lib import normarize_path
 import sys
 import aiohttp
@@ -53,7 +53,7 @@ async def archive_downloader(info_getter, **args):
             # データあり
             if not args['nodata'] and data:
                 json_path = os.path.join(bin_path, basename + '.json')
-                report(INFO, f'writing data -> {json_path}', **args)
+                report(INFO, f'writing data -> {json_path}', type=FILEIO, **args)
                 with open(json_path, 'wt', encoding='utf-8') as fp:
                     json.dump(data, fp)
 
@@ -72,7 +72,7 @@ async def archive_downloader(info_getter, **args):
                 task = asyncio.ensure_future(runner(imgurl, file_path))
                 tasks.append(task)
             else:
-                report(INFO, f'skip: {imgurl} -> {exists_file}', **args)
+                report(INFO, f'skip: {imgurl} == {exists_file}', **args)
 
             if args['count'] != -1 and i+1 >= args['count']:
                 break
@@ -89,7 +89,7 @@ async def archive_downloader(info_getter, **args):
             total_size += os.stat(e['path']).st_size
 
         if args['archive']:
-            report(INFO, f'archiving to {bin_path+".zip"}', **args)
+            report(INFO, f'archiving to {bin_path+".zip"}',type=FILEIO, **args)
             shutil.make_archive(bin_path, 'zip', root_dir=bin_path)
             shutil.rmtree(bin_path)
 

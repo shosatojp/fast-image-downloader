@@ -18,7 +18,7 @@ import concurrent.futures
 import aiohttp.client_exceptions
 import traceback
 import sys
-from libdlimg.error import ERROR, INFO, report
+from libdlimg.error import ERROR, INFO, NETWORK, report
 
 concurrent_semaphore = asyncio.Semaphore(10)
 executor = concurrent.futures.ThreadPoolExecutor(10)
@@ -42,7 +42,7 @@ async def download_img(__url, __path, **args):
                         if not ext:
                             __path += mimetypes.guess_extension(res.content_type) or '.jpg'
 
-                        report(INFO, f'downloading {__url} -> {__path}', **args)
+                        report(INFO, f'downloading {__url} -> {__path}', type=NETWORK, **args)
 
                         dirname, filename = os.path.split(__path)
                         tmp_path = f'{dirname}/.{filename}'
@@ -54,7 +54,7 @@ async def download_img(__url, __path, **args):
                                     break
                                 await fd.write(chunk)
                     else:
-                        report(ERROR, f'download_img: {res.status} {__url}', **args)
+                        report(ERROR, f'download_img: {res.status} {__url}', type=NETWORK, **args)
                         return None
 
         if os.path.exists(tmp_path):
@@ -69,7 +69,7 @@ async def download_img(__url, __path, **args):
             'tmp_path': tmp_path,
         }
     except Exception as e:
-        report(ERROR, f'skip {__url} {e}\n{traceback.format_exc()}', **args)
+        report(ERROR, f'skip {__url} {e}\n{traceback.format_exc()}', type=NETWORK, **args)
         return None
 
 
@@ -188,13 +188,13 @@ async def fetch(__url: str, ret={}, **args):
                             'body': text,
                             'realurl': str(res.url)
                         }, **args)
-                    report(INFO, f'fetched: {__url}', **args)
+                    report(INFO, f'fetched: {__url}', type=NETWORK, **args)
                     return text
                 else:
-                    report(ERROR, f'fetch(): {__url}', **args)
+                    report(ERROR, f'fetch(): {__url}', type=NETWORK, **args)
                     return None
     except Exception as e:
-        report(ERROR, f'skip {__url} {e}', file=sys.stderr, **args)
+        report(ERROR, f'skip {__url} {e}', file=sys.stderr, type=NETWORK, **args)
 
 
 def load_cache(__url: str, **args):
@@ -239,7 +239,7 @@ async def fetch_by_browser2(__url: str, **args):
         driver.quit()
         return html
 
-    report(INFO, f'fetched {__url}', **args)
+    report(INFO, f'fetched {__url}', type=NETWORK, **args)
     return get()
 
 
