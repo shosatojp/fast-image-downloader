@@ -7,9 +7,8 @@ import lib.sites
 import lib.lib
 import argparse
 import signal
-from lib.error import INFO, WARN, report
+from lib.error import FATAL, INFO, WARN, report
 
-signal.signal(signal.SIGINT, lambda n, f: exit(1))
 
 parser = argparse.ArgumentParser('fast image downloader')
 parser.add_argument('url', action='store', nargs='?', help='URL')
@@ -56,6 +55,8 @@ if not (args_dict['url'] or (args_dict['query'] and args_dict['site'])):
 args_dict['name_fn'] = lib.lib.select_name(args_dict['name'])
 args_dict['threading'] = args_dict['selenium']
 args_dict['waiter'] = select_waiter(args_dict['wait'], **args_dict)
+
+signal.signal(signal.SIGINT, lambda n, f: report(FATAL, 'SIGINT', **args_dict) or exit(1))
 
 info_getter = lib.sites.info_getter_selector(**args_dict)
 loop = asyncio.get_event_loop()
