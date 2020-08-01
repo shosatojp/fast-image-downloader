@@ -48,19 +48,19 @@ async def archive_downloader(info_getter, **args):
             basename, _ = os.path.splitext(filename)
             file_path = os.path.join(bin_path, filename)
 
+            # データあり
+            if not args['nodata'] and data:
+                json_path = os.path.join(bin_path, basename + '.json')
+                print(f'writing data -> {json_path}')
+                with open(json_path, 'wt', encoding='utf-8') as fp:
+                    json.dump(data, fp)
+
             exists_file = lib.load_map(imgurl, **args) if args['imgmap'] else lib.exists_prefix(bin_path, basename)
             if not exists_file:
                 async def runner(imgurl, file_path):
                     await lib.download_img(imgurl, file_path, **args)
                     params['progress'] += 1
                     show_progress(params['progress'], len(tasks))
-
-                # データあり
-                if not args['nodata'] and data:
-                    json_path = os.path.join(bin_path, basename + '.json')
-                    print(f'writing data -> {json_path}')
-                    with open(json_path, 'wt', encoding='utf-8') as fp:
-                        json.dump(data, fp)
 
                 task = asyncio.ensure_future(runner(imgurl, file_path))
                 tasks.append(task)
