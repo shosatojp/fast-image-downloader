@@ -73,7 +73,7 @@ async def download_img(__url, __path, **args):
         return None
 
 WRITE_MAP_COUNT = 0
-SAVE_MAP_PER = 10
+SAVE_MAP_PER = 1000
 
 
 def write_map(__url: str, __filename: str, **args):
