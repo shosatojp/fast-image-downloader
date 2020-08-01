@@ -104,9 +104,8 @@ def load_map(**args):
 
 def read_map(__url: str, **args):
     global imgmap
-    directory = os.path.join(args['basedir'], args['outdir'])
 
-    if __url in imgmap and os.path.exists(os.path.join(directory, imgmap[__url])):
+    if __url in imgmap and os.path.exists(os.path.join(args['basedir'], args['outdir'], imgmap[__url])):
         return imgmap[__url]
     else:
         return False
@@ -302,15 +301,21 @@ def select_name(src):
     }[src]
 
 
+rmap = {}
+
+
 def exists_prefix(rootdir, prefix):
-    pattern = os.path.join(rootdir, prefix) + '.*'
-    files = glob.glob(pattern)
-    files = list(filter(lambda e: not e.endswith('.json'), files))
-    if len(files) > 0:
-        return os.path.basename(files[0])
+    global rmap
+    if not rmap:
+        files = glob.glob(os.path.join(rootdir, '*'))
+        for e in files:
+            name, ext = os.path.splitext(e)
+            rmap[name] = ext
+
+    if prefix in rmap:
+        return prefix + rmap[prefix]
     else:
         return False
-    # return len(files) != 0
 
 
 async def parallel_for(generator, async_fn, **args):
