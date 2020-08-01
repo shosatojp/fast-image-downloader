@@ -60,7 +60,7 @@ args_dict['waiter'] = select_waiter(args_dict['wait'], **args_dict)
 info_getter = lib.sites.info_getter_selector(**args_dict)
 loop = asyncio.get_event_loop()
 
-report(WARN, f'starting crawling: `{" ".join(sys.argv)}`', **args_dict)
+report(WARN, f'start crawling: `{" ".join(sys.argv)}`', **args_dict)
 loop.run_until_complete(
     lib.core.archive_downloader(info_getter,
                                 **args_dict)
