@@ -1,4 +1,5 @@
 import json
+from os.path import basename
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 import time
@@ -309,7 +310,8 @@ def exists_prefix(rootdir, prefix):
     if not rmap:
         files = glob.glob(os.path.join(rootdir, '*'))
         for e in files:
-            name, ext = os.path.splitext(e)
+            _, basename = os.path.split(e)
+            name, ext = os.path.splitext(basename)
             rmap[name] = ext
 
     if prefix in rmap:
