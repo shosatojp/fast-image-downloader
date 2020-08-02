@@ -70,9 +70,10 @@ async def archive_downloader(info_getter, **args):
             # ファイルが存在しない場合は非同期ダウンロード
             if not exists_file:
                 async def runner(imgurl, file_path):
-                    await lib.download_img(imgurl, file_path, **args)
+                    ret = await lib.download_img(imgurl, file_path, **args)
                     params['progress'] += 1
                     show_progress(params['progress'], len(tasks), **args)
+                    return ret
 
                 task = asyncio.ensure_future(runner(imgurl, file_path))
                 tasks.append(task)
