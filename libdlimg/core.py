@@ -1,6 +1,6 @@
 import argparse
 from libdlimg.error import FATAL, INFO, FILEIO, PROGRESS, report
-from libdlimg.lib import normarize_path
+from libdlimg.lib import normarize_path, show_progress
 import sys
 import aiohttp
 import urllib
@@ -70,9 +70,11 @@ async def archive_downloader(info_getter, **args):
             # ファイルが存在しない場合は非同期ダウンロード
             if not exists_file:
                 async def runner(imgurl, file_path):
-                    ret = await lib.download_img(imgurl, file_path, **args)
+                    ret: dict = await lib.download_img(imgurl, file_path, **args)
                     params['progress'] += 1
                     show_progress(params['progress'], len(tasks), **args)
+                    if ret:
+                        ret['size'] = os.stat(ret['path']).st_size
                     return ret
 
                 task = asyncio.ensure_future(runner(imgurl, file_path))
@@ -91,7 +93,7 @@ async def archive_downloader(info_getter, **args):
 
         total_size = 0
         for e in [e for e in downloaded if e]:
-            total_size += os.stat(e['path']).st_size
+            total_size += e['size']
 
         if args['archive']:
             report(INFO, f'archiving to {bin_path+".zip"}', type=FILEIO, **args)
@@ -106,6 +108,3 @@ async def archive_downloader(info_getter, **args):
     except KeyboardInterrupt:
         print('key')
 
-
-def show_progress(__progress: int, __total: int, **args):
-    report(PROGRESS, f'  {__progress}/{__total}  {int(__progress/__total*1000)/10}%', end='\r', **args)

@@ -7,13 +7,36 @@ import json
 lock = asyncio.Lock()
 
 
+class Waiter():
+    def __init__(self, wait, waitlist, **args):
+        self.waitlist = {}
+        if waitlist:
+            with open(waitlist, 'rt', encoding='utf-8') as f:
+                obj: dict = json.load(f)
+                for key, item in obj.items():
+                    wargs = list(map(lambda e: e.strip(), str(item).split(' ')))
+                    self.waitlist[key] = select_waiter(wargs, **args)
+
+        if '*' not in self.waitlist:
+            if wait:
+                self.waitlist['*'] = select_waiter(wait, **args)
+            else:
+                self.waitlist['*'] = DefaultWaiter(**args)
+
+    async def wait(self, url: str):
+        parsed_url = urllib.parse.urlparse(url)
+        host = parsed_url.hostname
+
+        if host in self.waitlist:
+            waiter: DefaultWaiter = self.waitlist[host]
+        else:
+            waiter: DefaultWaiter = self.waitlist['*']
+
+        await waiter.wait(url)
+
+
 class DefaultWaiter():
     def __init__(self, **args):
-        if 'waitlist' in args and args['waitlist']:
-            with open(args['waitlist'], 'rt', encoding='utf-8') as f:
-                self.waitlist = json.load(f)
-        else:
-            self.waitlist = {}
         self.nightshift = 'nightshift' in args and args['nightshift']
         self.table = {}
 
@@ -24,21 +47,18 @@ class DefaultWaiter():
         parsed_url = urllib.parse.urlparse(url)
         host = parsed_url.hostname
 
-        # overwrite sec with waitlist
-        _sec = self.waitlist[host] if host in self.waitlist else sec
-
         # night shift
         hour = time.localtime().tm_hour
         if self.nightshift and 1 <= hour < 6:
-            _sec /= self.nightshift
+            sec /= self.nightshift
 
         if host in self.table:
             await self.table[host]['lock'].acquire()
             now = time.time()
-            if now > self.table[host]['time'] + _sec:
+            if now > self.table[host]['time'] + sec:
                 self.table[host]['time'] = now
             else:
-                ws = max(_sec - (now - self.table[host]['time']), 0)
+                ws = max(sec - (now - self.table[host]['time']), 0)
                 await asyncio.sleep(ws)
                 self.table[host]['time'] = time.time()
             self.table[host]['lock'].release()

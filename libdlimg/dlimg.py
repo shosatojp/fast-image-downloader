@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import sys
 import asyncio
-from libdlimg.waiter import select_waiter
+from libdlimg.waiter import Waiter, select_waiter
 import libdlimg.core
 import libdlimg.sites
 import libdlimg.lib
@@ -53,7 +53,7 @@ if not (args_dict['url'] or (args_dict['query'] and args_dict['site'])):
 
 args_dict['name_fn'] = libdlimg.lib.select_name(args_dict['name'])
 args_dict['threading'] = args_dict['selenium']
-args_dict['waiter'] = select_waiter(args_dict['wait'], **args_dict)
+args_dict['waiter'] = Waiter(**args_dict)
 
 signal.signal(signal.SIGINT, lambda n, f: report(FATAL, 'SIGINT', **args_dict) or exit(1))
 
@@ -63,5 +63,5 @@ loop = asyncio.get_event_loop()
 report(WARN, f'start crawling: `{" ".join(sys.argv)}`', **args_dict)
 loop.run_until_complete(
     libdlimg.core.archive_downloader(info_getter,
-                                **args_dict)
+                                     **args_dict)
 )

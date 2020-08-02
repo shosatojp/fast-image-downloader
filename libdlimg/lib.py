@@ -19,7 +19,7 @@ import concurrent.futures
 import aiohttp.client_exceptions
 import traceback
 import sys
-from libdlimg.error import ERROR, INFO, NETWORK, report
+from libdlimg.error import ERROR, INFO, NETWORK, PROGRESS, report
 
 concurrent_semaphore = asyncio.Semaphore(10)
 executor = concurrent.futures.ThreadPoolExecutor(10)
@@ -27,6 +27,10 @@ waiter_table = {}
 imgmap = None
 
 CACHE_VERSION = 1
+
+
+def show_progress(__progress: int, __total: int, **args):
+    report(PROGRESS, f'  {__progress}/{__total}  {int(__progress/__total*1000)/10}%', end='\r', **args)
 
 
 async def download_img(__url, __path, **args):
