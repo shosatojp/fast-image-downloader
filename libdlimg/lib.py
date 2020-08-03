@@ -219,13 +219,13 @@ def save_fetched(__url: str, __obj, **args):
 
 
 async def fetch_by_browser2(__url: str, **args):
-    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.firefox.options import Options
     from selenium import webdriver
 
     def get():
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        driver = webdriver.Chrome(options=chrome_options)
+        firefox_options = Options()
+        firefox_options.add_argument("--headless")
+        driver = webdriver.Firefox(options=firefox_options)
         driver.get(__url)
 
         while True:
@@ -318,7 +318,7 @@ def exists_prefix(rootdir, prefix):
             name, ext = os.path.splitext(basename)
             rmap[name] = ext
 
-    if prefix in rmap:
+    if prefix in rmap and rmap[prefix] != '.json':
         return prefix + rmap[prefix]
     else:
         return False
