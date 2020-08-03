@@ -118,9 +118,7 @@ def read_map(__url: str, **args):
 
 def single_selector_collector(__url, __selector, __attr='src', **args):
     async def get_imgs():
-        html = await fetch(__url, **args)
-        open('hoge.html', 'wt', encoding='utf-8').write(html)
-        doc = bs4.BeautifulSoup(html, 'html.parser')
+        doc = await fetch_doc(__url, **args)
         urls = list(map(lambda e: e[__attr], doc.select(__selector)))
         for url in urls:
             yield url
@@ -129,14 +127,12 @@ def single_selector_collector(__url, __selector, __attr='src', **args):
 
 
 async def single_one_selector(params, **args):
-    html = await fetch(params['url'], **args)
-    doc = bs4.BeautifulSoup(html, 'html.parser')
+    doc = await fetch_doc(params['url'], **args)
     return doc.select_one(params['selector'])[params['attr']]
 
 
 async def multiple_selector(params, **args):
-    html = await fetch(params['url'], **args)
-    doc = bs4.BeautifulSoup(html, 'html.parser')
+    doc = await fetch_doc(params['url'], **args)
     return list(map(lambda e: e[params['attr']], doc.select(params['selector'])))
 
 
@@ -183,8 +179,7 @@ async def fetch(__url: str, ret={}, **args):
                     ret['realurl'] = res.url
                     text = await res.text()
                     if args['savefetched']:
-                        save_fetched(__url, {
-                            'body': text,
+                        save_fetched(__url, text, {
                             'realurl': str(res.url)
                         }, **args)
                     report(INFO, f'fetched: {__url}', type=NETWORK, **args)
@@ -198,24 +193,48 @@ async def fetch(__url: str, ret={}, **args):
 
 def load_cache(__url: str, **args):
     filename = urllib.parse.quote(__url, '')
-    fullpath = os.path.join(args['basedir'], args['outdir'], filename+'.json')
-    if os.path.exists(fullpath):
-        with open(fullpath, 'rt', encoding='utf-8') as f:
+    htmlpath = os.path.join(args['basedir'], args['outdir'], filename+'.html')
+    jsonpath = os.path.join(args['basedir'], args['outdir'], filename+'.json')
+
+    html = None
+
+    if os.path.exists(htmlpath):
+        with open(htmlpath, 'rt', encoding='utf-8') as f:
+            html = f.read()
+
+    if os.path.exists(jsonpath):
+        with open(jsonpath, 'rt', encoding='utf-8') as f:
             obj = json.load(f)
-            if 'cache_version' in obj and obj['cache_version'] == CACHE_VERSION:
-                return obj
-            else:
-                return None
+        if 'cache_version' in obj and obj['cache_version'] == CACHE_VERSION:
+
+            #### json内にhtml置くのやめる
+            if 'body' in obj:
+                html = obj['body']
+                with open(htmlpath, 'wt', encoding='utf-8') as f:
+                    f.write(obj['body'])
+                del obj['body']
+                with open(jsonpath, 'wt', encoding='utf-8') as f:
+                    json.dump(obj, f)
+            ###############################
+
+            obj['body'] = html
+
+            return obj
+        else:
+            return None
     else:
         return None
 
 
-def save_fetched(__url: str, __obj, **args):
+def save_fetched(__url: str, __body: str, __obj, **args):
     filename = urllib.parse.quote(__url, '')
-    fullpath = os.path.join(args['basedir'], args['outdir'], filename+'.json')
+    htmlpath = os.path.join(args['basedir'], args['outdir'], filename+'.html')
+    jsonpath = os.path.join(args['basedir'], args['outdir'], filename+'.json')
     __obj['cache_version'] = CACHE_VERSION
-    with open(fullpath, 'wt', encoding='utf-8') as f:
+    with open(jsonpath, 'wt', encoding='utf-8') as f:
         json.dump(__obj, f)
+    with open(htmlpath, 'wt', encoding='utf-8') as f:
+        f.write(__body)
 
 
 async def fetch_by_browser2(__url: str, **args):
@@ -276,7 +295,7 @@ async def fetch_by_browser(__url: str, **args):
 
 async def fetch_doc(__url: str, ret={}, **args):
     html = await fetch(__url, ret, **args)
-    return bs4.BeautifulSoup(html, 'html.parser')
+    return bs4.BeautifulSoup(html, 'lxml')
 
 
 def name_keep(params, **args):
