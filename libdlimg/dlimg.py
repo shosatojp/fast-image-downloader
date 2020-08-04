@@ -55,7 +55,6 @@ args_dict['name_fn'] = libdlimg.lib.select_name(args_dict['name'])
 args_dict['threading'] = args_dict['selenium']
 args_dict['waiter'] = Waiter(**args_dict)
 
-signal.signal(signal.SIGINT, lambda n, f: report(FATAL, 'SIGINT', **args_dict) or exit(1))
 
 info_getter = libdlimg.sites.info_getter_selector(**args_dict)
 loop = asyncio.get_event_loop()

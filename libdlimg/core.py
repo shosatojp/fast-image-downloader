@@ -14,6 +14,7 @@ from . import sites
 import time
 import json
 import stat
+import signal
 
 
 async def archive_downloader(info_getter, **args):
@@ -32,6 +33,14 @@ async def archive_downloader(info_getter, **args):
         os.makedirs(bin_path, exist_ok=True)
 
         lib.load_map(**args)
+
+        # sigint handler
+        def on_sigint(n, f):
+            lib.save_map(**args)
+            report(FATAL, 'SIGINT', **args)
+            exit(1)
+
+        signal.signal(signal.SIGINT, on_sigint)
 
         i = args['startnum']
         tasks = []
@@ -88,6 +97,7 @@ async def archive_downloader(info_getter, **args):
             i += 1
 
         downloaded = await asyncio.gather(*tasks)
+        await args['session'].close()
 
         lib.save_map(**args)
 
@@ -100,11 +110,8 @@ async def archive_downloader(info_getter, **args):
             shutil.make_archive(bin_path, 'zip', root_dir=bin_path)
             shutil.rmtree(bin_path)
 
-        await args['session'].close()
-
         total_time = int((time.time() - start)*10)/10
         total_mib = int(total_size/1024/1024 * 10)/10
         report(FATAL, f'downloaded {len(downloaded)} files in {total_time} s / {total_mib} MiB / {int(total_mib/(total_time + 1e-3)*10)/10} MiB/s', **args)
     except KeyboardInterrupt:
         print('key')
-
