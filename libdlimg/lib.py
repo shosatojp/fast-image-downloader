@@ -305,7 +305,8 @@ async def fetch_doc(__url: str, ret={}, **args):
 
 
 def name_keep(params, **args):
-    filename = os.path.split(params['url'])[1]
+    parsed = urllib.parse.urlparse(params['url'])
+    filename = os.path.split(parsed.path)[1]
     name, ext = os.path.splitext(filename)
     if args['namelen'] > 0:
         name = name[:args['namelen']]
