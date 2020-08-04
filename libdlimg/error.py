@@ -14,9 +14,15 @@ NETWORK = '>'
 FILEIO = '.'
 
 
-def report(level: int, message: str, end='\n', type=' ', ** args):
-    if level == PROGRESS or level >= args['loglevel']:
-        print(type*level, message, end=end)
+class Reporter():
+    def __init__(self, loglevel, handler=None, handlelevel=3):
+        self.loglevel = loglevel
+        self.handler = handler
+        self.handlelevel = handlelevel
 
-    if level >= args['handlelevel'] and args['handler']:
-        subprocess.run([args['handler'], str(level), message])
+    def report(self, level: int, message: str, end='\n', type=' ', ** args):
+        if level == PROGRESS or level >= self.loglevel:
+            print(type*level, message, end=end)
+
+        if level >= self.handlelevel and self.handler:
+            subprocess.run([self.handler, str(level), message])

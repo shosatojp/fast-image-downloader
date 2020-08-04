@@ -7,7 +7,7 @@ import libdlimg.sites
 import libdlimg.lib
 import argparse
 import signal
-from libdlimg.error import FATAL, INFO, WARN, report
+from libdlimg.error import FATAL, INFO, Reporter, WARN, report
 
 
 parser = argparse.ArgumentParser('fast image downloader')
@@ -19,6 +19,7 @@ parser.add_argument('--startnum', '-sn', type=int, default=0, help='image number
 parser.add_argument('--namelen', '-nl', type=int, default=-1, help='max length of filename')
 parser.add_argument('--pagestart', '-ps', type=int, default=1, help='page start')
 parser.add_argument('--pageend', '-pe', type=int, default=-1, help='page end')
+parser.add_argument('--filelist', '-F', action='store_true', default=True, help='outputs pagefile')
 parser.add_argument('--count', '-c', type=int, default=-1, help='max count')
 parser.add_argument('--outdir', '-o', default='', help='output directory name')
 parser.add_argument('--basedir', '-b', default='', help='output base directory name')
@@ -59,8 +60,10 @@ args_dict['waiter'] = Waiter(**args_dict)
 info_getter = libdlimg.sites.info_getter_selector(**args_dict)
 loop = asyncio.get_event_loop()
 
-report(WARN, f'start crawling: `{" ".join(sys.argv)}`', **args_dict)
+reporter = Reporter(args.loglevel, args.handler, args.handlelevel)
+
+reporter.report(WARN, f'start crawling: `{" ".join(sys.argv)}`', **args_dict)
 loop.run_until_complete(
-    libdlimg.core.archive_downloader(info_getter,
-                                     **args_dict)
+    libdlimg.core.archive_downloader(info_getter, reporter=reporter
+                                     ** args_dict)
 )

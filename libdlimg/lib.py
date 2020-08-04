@@ -1,4 +1,10 @@
+from asyncio.locks import Semaphore
+from functools import cached_property
 import json
+
+from aiohttp.client import ClientSession
+from libdlimg.waiter import Waiter
+from libdlimg.list import Mapper
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 import time
@@ -18,7 +24,7 @@ import concurrent.futures
 import aiohttp.client_exceptions
 import traceback
 import sys
-from libdlimg.error import ERROR, INFO, NETWORK, PROGRESS, FILEIO, report
+from libdlimg.error import ERROR, INFO, NETWORK, PROGRESS, FILEIO, Reporter, report
 
 concurrent_semaphore = asyncio.Semaphore(10)
 executor = concurrent.futures.ThreadPoolExecutor(10)
@@ -29,92 +35,57 @@ CACHE_VERSION = 1
 
 
 def show_progress(__progress: int, __total: int, **args):
-    report(PROGRESS, f'  {__progress}/{__total}  {int(__progress/__total*1000)/10}%', end='\r', **args)
+    reporter.report(PROGRESS, f'  {__progress}/{__total}  {int(__progress/__total*1000)/10}%', end='\r')
 
 
-async def download_img(__url, __path, **args):
-    # waiter
-    if 'waiter' in args:
-        await args['waiter'].wait(__url)
+class ImageDownloader():
+    def __init__(self, reporter: Reporter = None,
+                 mapper: Mapper = None):
+        self.reporter = reporter
+        self.mapper = mapper
 
-    try:
-        async with concurrent_semaphore:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(__url) as res:
-                    if res.status == 200:
-                        _, ext = os.path.splitext(__path)
-                        if not ext:
-                            __path += mimetypes.guess_extension(res.content_type) or '.jpg'
+    async def download_img(self, __url, __path, **args):
+        # waiter
+        if 'waiter' in args:
+            await args['waiter'].wait(__url)
 
-                        report(INFO, f'downloading {__url} -> {__path}', type=NETWORK, **args)
+        try:
+            async with concurrent_semaphore:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(__url) as res:
+                        if res.status == 200:
+                            _, ext = os.path.splitext(__path)
+                            if not ext:
+                                __path += mimetypes.guess_extension(res.content_type) or '.jpg'
 
-                        dirname, filename = os.path.split(__path)
-                        tmp_path = f'{dirname}/.{filename}'
+                            self.reporter.report(INFO, f'downloading {__url} -> {__path}', type=NETWORK)
 
-                        async with aiofiles.open(tmp_path, 'wb') as fd:
-                            while True:
-                                chunk = await res.content.read(1024)
-                                if not chunk:
-                                    break
-                                await fd.write(chunk)
-                    else:
-                        report(ERROR, f'download_img: {res.status} {__url}', type=NETWORK, **args)
-                        return None
+                            dirname, filename = os.path.split(__path)
+                            tmp_path = f'{dirname}/.{filename}'
 
-        if os.path.exists(tmp_path):
-            shutil.move(tmp_path, __path)
+                            async with aiofiles.open(tmp_path, 'wb') as fd:
+                                while True:
+                                    chunk = await res.content.read(1024)
+                                    if not chunk:
+                                        break
+                                    await fd.write(chunk)
+                        else:
+                            self.reporter.report(ERROR, f'download_img: {res.status} {__url}', type=NETWORK)
+                            return None
 
-        # save mapdata
-        write_map(__url, filename, **args)
+            if os.path.exists(tmp_path):
+                shutil.move(tmp_path, __path)
 
-        return {
-            'path': __path,
-            'tmp_path': tmp_path,
-        }
-    except Exception as e:
-        report(ERROR, f'skip {__url} {e}\n{traceback.format_exc()}', type=NETWORK, **args)
-        return None
+            # save mapdata
+            self.mapper.write_map(__url, filename)
 
-WRITE_MAP_COUNT = 0
-SAVE_MAP_PER = 1000
-
-
-def write_map(__url: str, __filename: str, **args):
-    global imgmap
-    global WRITE_MAP_COUNT
-    imgmap[__url] = __filename
-
-    WRITE_MAP_COUNT += 1
-    if WRITE_MAP_COUNT % SAVE_MAP_PER == 0:
-        save_map(**args)
-
-
-def save_map(**args):
-    mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
-    with open(mapfile, 'wt', encoding='utf-8') as f:
-        report(INFO, f'writing {mapfile}', type=FILEIO, **args)
-        json.dump(imgmap, f)
-
-
-def load_map(**args):
-    global imgmap
-    directory = os.path.join(args['basedir'], args['outdir'])
-    mapfile = os.path.join(directory, 'map.json')
-    if os.path.exists(mapfile):
-        with open(mapfile, 'rt', encoding='utf-8') as f:
-            report(INFO, f'reading {mapfile}', type=FILEIO, ** args)
-            imgmap = json.loads(f.read() or '{}')
-    else:
-        imgmap = {}
-
-
-def read_map(__url: str, **args):
-    global imgmap
-
-    if __url in imgmap and os.path.exists(os.path.join(args['basedir'], args['outdir'], imgmap[__url])):
-        return imgmap[__url]
-    else:
-        return False
+            return {
+                'path': __path,
+                'tmp_path': tmp_path,
+            }
+        except Exception as e:
+            self.reporter.report(ERROR, f'skip {__url} {e}\n{traceback.format_exc()}', type=NETWORK)
+            return None
 
 
 def single_selector_collector(__url, __selector, __attr='src', **args):
@@ -153,155 +124,170 @@ async def paged_collector(links_fn, ps=None, pe=None, params=None, ** args):
         page_num += 1
 
 
-async def fetch(__url: str, ret={}, **args):
-    if args['usecache']:
-        obj = load_cache(__url, **args)
-        if obj:
-            ret['realurl'] = obj['realurl']
-            return obj['body']
+class Fetcher():
+    def __init__(self,
+                 session: ClientSession,
+                 semaphore: Semaphore,
+                 reporter: Reporter = None,
+                 waiter: Waiter = None,
+                 cachedir: str = '',
+                 cache: bool = True,
+                 usecache: bool = True,
+                 useragent: str = ''
+                 ) -> None:
+        self.session = session
+        self.semaphore = semaphore
+        self.reporter = reporter
+        self.waiter = waiter
+        self.cachedir = cachedir
+        self.cache = cache
+        self.usecache = usecache
+        self.useragent = useragent
 
-    # waiter
-    if 'waiter' in args:
-        await args['waiter'].wait(__url)
+    async def fetch(self, __url: str, ret={}, **args):
+        if self.usecache:
+            obj = self.load_cache(__url)
+            if obj:
+                ret['realurl'] = obj['realurl']
+                return obj['body']
 
-    if args['threading']:
-        return await fetch_by_browser2(__url, **args)
+        # waiter
+        if self.waiter:
+            await self.waiter.wait(__url)
 
-    headers = {}
-    if 'useragent' in args:
-        headers['user-agent'] = args['useragent']
+        # if args['threading']:
+        #     return await fetch_by_browser2(__url, **args)
 
-    try:
-        async with args['semaphore']:
-            session: aiohttp.client.ClientSession = args['session']
-            report(INFO, f'fetching {__url}', type=NETWORK, **args)
-            async with session.get(__url, headers=headers) as res:
-                if res.status == 200:
-                    ret['realurl'] = res.url
-                    text = await res.text()
-                    if args['savefetched']:
-                        save_fetched(__url, text, {
-                            'realurl': str(res.url)
-                        }, **args)
-                    return text
-                else:
-                    report(ERROR, f'fetch(): {__url}', type=NETWORK, **args)
-                    return None
-    except Exception as e:
-        report(ERROR, f'skip {__url} {e}', file=sys.stderr, type=NETWORK, **args)
+        headers = {}
+        if self.useragent:
+            headers['user-agent'] = self.useragent
 
+        try:
+            async with self.semaphore:
+                session: aiohttp.client.ClientSession = self.session
+                self.reporter.report(INFO, f'fetching {__url}', type=NETWORK)
+                async with session.get(__url, headers=headers) as res:
+                    if res.status == 200:
+                        ret['realurl'] = res.url
+                        text = await res.text()
+                        if self.cache:
+                            self.save_fetched(__url, text, {
+                                'realurl': str(res.url)
+                            }, **args)
+                        return text
+                    else:
+                        self.reporter.report(ERROR, f'fetch(): {__url}', type=NETWORK)
+                        return None
+        except Exception as e:
+            self.reporter.report(ERROR, f'skip {__url} {e}', file=sys.stderr, type=NETWORK)
 
-def load_cache(__url: str, **args):
-    filename = urllib.parse.quote(__url, '')
-    htmlpath = os.path.join(args['basedir'], args['outdir'], filename+'.html')
-    jsonpath = os.path.join(args['basedir'], args['outdir'], filename+'.json')
+    def load_cache(self, __url: str):
+        filename = urllib.parse.quote(__url, '')
+        htmlpath = os.path.join(self.cachedir, filename+'.html')
+        jsonpath = os.path.join(self.cachedir, filename+'.json')
 
-    html = None
+        html = None
 
-    if os.path.exists(htmlpath):
-        with open(htmlpath, 'rt', encoding='utf-8') as f:
-            report(INFO, f'reading {htmlpath}', type=FILEIO, **args)
-            html = f.read()
+        if os.path.exists(htmlpath):
+            with open(htmlpath, 'rt', encoding='utf-8') as f:
+                self.reporter.report(INFO, f'reading {htmlpath}', type=FILEIO)
+                html = f.read()
 
-    if os.path.exists(jsonpath):
-        with open(jsonpath, 'rt', encoding='utf-8') as f:
-            report(INFO, f'reading {jsonpath}', type=FILEIO, **args)
-            obj = json.load(f)
-        if 'cache_version' in obj and obj['cache_version'] == CACHE_VERSION:
+        if os.path.exists(jsonpath):
+            with open(jsonpath, 'rt', encoding='utf-8') as f:
+                self.reporter.report(INFO, f'reading {jsonpath}', type=FILEIO)
+                obj = json.load(f)
+            if 'cache_version' in obj and obj['cache_version'] == CACHE_VERSION:
 
-            # json内にhtml置くのやめる
-            if 'body' in obj:
-                html = obj['body']
-                with open(htmlpath, 'wt', encoding='utf-8') as f:
-                    report(INFO, f'writing {htmlpath}', type=FILEIO, **args)
-                    f.write(obj['body'])
-                del obj['body']
-                with open(jsonpath, 'wt', encoding='utf-8') as f:
-                    report(INFO, f'writing {jsonpath}', type=FILEIO, **args)
-                    json.dump(obj, f)
-            ###############################
+                # json内にhtml置くのやめる
+                if 'body' in obj:
+                    html = obj['body']
+                    with open(htmlpath, 'wt', encoding='utf-8') as f:
+                        self.reporter.report(INFO, f'writing {htmlpath}', type=FILEIO)
+                        f.write(obj['body'])
+                    del obj['body']
+                    with open(jsonpath, 'wt', encoding='utf-8') as f:
+                        self.reporter.report(INFO, f'writing {jsonpath}', type=FILEIO)
+                        json.dump(obj, f)
+                ###############################
 
-            obj['body'] = html
+                obj['body'] = html
 
-            return obj
+                return obj
+            else:
+                return None
         else:
             return None
-    else:
-        return None
 
+    def save_fetched(self, __url: str, __body: str, __obj):
+        filename = urllib.parse.quote(__url, '')
+        htmlpath = os.path.join(self.cachedir, filename+'.html')
+        jsonpath = os.path.join(self.cachedir, filename+'.json')
+        __obj['cache_version'] = CACHE_VERSION
+        with open(jsonpath, 'wt', encoding='utf-8') as f:
+            self.reporter.report(INFO, f'writing {jsonpath}', type=FILEIO,)
+            json.dump(__obj, f)
+        with open(htmlpath, 'wt', encoding='utf-8') as f:
+            self.reporter.report(INFO, f'writing {htmlpath}', type=FILEIO)
+            f.write(__body)
 
-def save_fetched(__url: str, __body: str, __obj, **args):
-    filename = urllib.parse.quote(__url, '')
-    htmlpath = os.path.join(args['basedir'], args['outdir'], filename+'.html')
-    jsonpath = os.path.join(args['basedir'], args['outdir'], filename+'.json')
-    __obj['cache_version'] = CACHE_VERSION
-    with open(jsonpath, 'wt', encoding='utf-8') as f:
-        report(INFO, f'writing {jsonpath}', type=FILEIO,  **args)
-        json.dump(__obj, f)
-    with open(htmlpath, 'wt', encoding='utf-8') as f:
-        report(INFO, f'writing {htmlpath}', type=FILEIO, **args)
-        f.write(__body)
+    # async def fetch_by_browser2(__url: str, **args):
+    #     from selenium.webdriver.firefox.options import Options
+    #     from selenium import webdriver
 
+    #     def get():
+    #         firefox_options = Options()
+    #         firefox_options.add_argument("--headless")
+    #         driver = webdriver.Firefox(options=firefox_options)
+    #         driver.get(__url)
 
-async def fetch_by_browser2(__url: str, **args):
-    from selenium.webdriver.firefox.options import Options
-    from selenium import webdriver
+    #         while True:
+    #             state = driver.execute_script('return document.readyState')
+    #             if state == 'complete':
+    #                 break
+    #             time.sleep(0.1)
 
-    def get():
-        firefox_options = Options()
-        firefox_options.add_argument("--headless")
-        driver = webdriver.Firefox(options=firefox_options)
-        driver.get(__url)
+    #         html = driver.find_element_by_tag_name('html').get_attribute('innerHTML')
+    #         driver.quit()
+    #         return html
 
-        while True:
-            state = driver.execute_script('return document.readyState')
-            if state == 'complete':
-                break
-            time.sleep(0.1)
+    #     reporter.report(INFO, f'fetched {__url}', type=NETWORK)
+    #     return get()
 
-        html = driver.find_element_by_tag_name('html').get_attribute('innerHTML')
-        driver.quit()
-        return html
+    # async def fetch_by_browser(__url: str, **args):
+    #     from selenium.webdriver.chrome.options import Options
+    #     from selenium import webdriver
 
-    report(INFO, f'fetched {__url}', type=NETWORK, **args)
-    return get()
+    #     def get():
+    #         chrome_options = Options()
+    #         chrome_options.add_argument("--headless")
+    #         driver = webdriver.Chrome(options=chrome_options)
+    #         driver.get(__url)
 
+    #         while True:
+    #             state = driver.execute_script('return document.readyState')
+    #             if state == 'complete':
+    #                 break
+    #             time.sleep(0.1)
 
-async def fetch_by_browser(__url: str, **args):
-    from selenium.webdriver.chrome.options import Options
-    from selenium import webdriver
+    #         html = driver.find_element_by_tag_name('html').get_attribute('innerHTML')
+    #         driver.quit()
+    #         return html
 
-    def get():
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        driver = webdriver.Chrome(options=chrome_options)
-        driver.get(__url)
+    #     async def async_get():
+    #         future = executor.submit(get)
+    #         return future.result()
 
-        while True:
-            state = driver.execute_script('return document.readyState')
-            if state == 'complete':
-                break
-            time.sleep(0.1)
+    #     async with args['semaphore']:
+    #         print('start')
+    #         task = asyncio.ensure_future(async_get())
+    #         result = (await asyncio.gather(task))[0]
+    #         print('fetched', __url)
+    #         return result
 
-        html = driver.find_element_by_tag_name('html').get_attribute('innerHTML')
-        driver.quit()
-        return html
-
-    async def async_get():
-        future = executor.submit(get)
-        return future.result()
-
-    async with args['semaphore']:
-        print('start')
-        task = asyncio.ensure_future(async_get())
-        result = (await asyncio.gather(task))[0]
-        print('fetched', __url)
-        return result
-
-
-async def fetch_doc(__url: str, ret={}, **args):
-    html = await fetch(__url, ret, **args)
-    return bs4.BeautifulSoup(html, 'lxml')
+    async def fetch_doc(self, __url: str, ret={}):
+        html = await self.fetch(__url, ret)
+        return bs4.BeautifulSoup(html, 'lxml')
 
 
 def name_keep(params, **args):
