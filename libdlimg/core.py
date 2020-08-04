@@ -36,8 +36,8 @@ async def archive_downloader(info_getter, **args):
 
         # sigint handler
         def on_sigint(n, f):
-            lib.save_map(**args)
             report(FATAL, 'SIGINT', **args)
+            lib.save_map(**args)
             exit(1)
 
         signal.signal(signal.SIGINT, on_sigint)
