@@ -1,5 +1,4 @@
 import json
-from os.path import basename
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 import time
@@ -19,7 +18,7 @@ import concurrent.futures
 import aiohttp.client_exceptions
 import traceback
 import sys
-from libdlimg.error import ERROR, INFO, NETWORK, PROGRESS, report
+from libdlimg.error import ERROR, INFO, NETWORK, PROGRESS, FILEIO, report
 
 concurrent_semaphore = asyncio.Semaphore(10)
 executor = concurrent.futures.ThreadPoolExecutor(10)
@@ -93,6 +92,7 @@ def write_map(__url: str, __filename: str, **args):
 def save_map(**args):
     mapfile = os.path.join(args['basedir'], args['outdir'], 'map.json')
     with open(mapfile, 'wt', encoding='utf-8') as f:
+        report(INFO, f'writing {mapfile}', type=FILEIO, **args)
         json.dump(imgmap, f)
 
 
@@ -102,6 +102,7 @@ def load_map(**args):
     mapfile = os.path.join(directory, 'map.json')
     if os.path.exists(mapfile):
         with open(mapfile, 'rt', encoding='utf-8') as f:
+            report(INFO, f'reading {mapfile}', type=FILEIO, ** args)
             imgmap = json.loads(f.read() or '{}')
     else:
         imgmap = {}
@@ -156,7 +157,6 @@ async def fetch(__url: str, ret={}, **args):
     if args['usecache']:
         obj = load_cache(__url, **args)
         if obj:
-            report(INFO, f'use cached {__url}', **args)
             ret['realurl'] = obj['realurl']
             return obj['body']
 
@@ -174,6 +174,7 @@ async def fetch(__url: str, ret={}, **args):
     try:
         async with args['semaphore']:
             session: aiohttp.client.ClientSession = args['session']
+            report(INFO, f'fetching {__url}', type=NETWORK, **args)
             async with session.get(__url, headers=headers) as res:
                 if res.status == 200:
                     ret['realurl'] = res.url
@@ -182,7 +183,6 @@ async def fetch(__url: str, ret={}, **args):
                         save_fetched(__url, text, {
                             'realurl': str(res.url)
                         }, **args)
-                    report(INFO, f'fetched: {__url}', type=NETWORK, **args)
                     return text
                 else:
                     report(ERROR, f'fetch(): {__url}', type=NETWORK, **args)
@@ -200,20 +200,24 @@ def load_cache(__url: str, **args):
 
     if os.path.exists(htmlpath):
         with open(htmlpath, 'rt', encoding='utf-8') as f:
+            report(INFO, f'reading {htmlpath}', type=FILEIO, **args)
             html = f.read()
 
     if os.path.exists(jsonpath):
         with open(jsonpath, 'rt', encoding='utf-8') as f:
+            report(INFO, f'reading {jsonpath}', type=FILEIO, **args)
             obj = json.load(f)
         if 'cache_version' in obj and obj['cache_version'] == CACHE_VERSION:
 
-            #### json内にhtml置くのやめる
+            # json内にhtml置くのやめる
             if 'body' in obj:
                 html = obj['body']
                 with open(htmlpath, 'wt', encoding='utf-8') as f:
+                    report(INFO, f'writing {htmlpath}', type=FILEIO, **args)
                     f.write(obj['body'])
                 del obj['body']
                 with open(jsonpath, 'wt', encoding='utf-8') as f:
+                    report(INFO, f'writing {jsonpath}', type=FILEIO, **args)
                     json.dump(obj, f)
             ###############################
 
@@ -232,8 +236,10 @@ def save_fetched(__url: str, __body: str, __obj, **args):
     jsonpath = os.path.join(args['basedir'], args['outdir'], filename+'.json')
     __obj['cache_version'] = CACHE_VERSION
     with open(jsonpath, 'wt', encoding='utf-8') as f:
+        report(INFO, f'writing {jsonpath}', type=FILEIO,  **args)
         json.dump(__obj, f)
     with open(htmlpath, 'wt', encoding='utf-8') as f:
+        report(INFO, f'writing {htmlpath}', type=FILEIO, **args)
         f.write(__body)
 
 

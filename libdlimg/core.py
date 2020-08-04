@@ -25,7 +25,7 @@ async def archive_downloader(info_getter, **args):
 
         info = await info_getter(**args)
         title = re.sub('[<>:"/\\|?*]', '', info['title']).strip()
-        report(INFO, f'title = {title}', **args)
+        report(INFO, f'title: {title}', **args)
         imgs = info['imgs']
 
         bin_path = os.path.join(args['basedir'], args['outdir'] or normarize_path(title))
@@ -80,7 +80,7 @@ async def archive_downloader(info_getter, **args):
                 task = asyncio.ensure_future(runner(imgurl, file_path))
                 tasks.append(task)
             else:
-                report(INFO, f'skip: {imgurl} == {exists_file}', **args)
+                report(INFO, f'skip {imgurl} == {exists_file}', **args)
 
             if args['count'] != -1 and i+1 >= args['count']:
                 break
