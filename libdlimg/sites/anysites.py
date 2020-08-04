@@ -1,6 +1,6 @@
 from .. import lib
 
-site = 'anysite'
+# site = 'anysite'
 query = False
 
 async def info_getter(**args):

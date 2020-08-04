@@ -9,7 +9,7 @@ import aiohttp
 import sys
 import urllib.parse
 
-site = 'tsundora'
+# site = 'tsundora'
 match = re.compile('https?://tsundora.com/.*')
 query = True  # ready for query
 

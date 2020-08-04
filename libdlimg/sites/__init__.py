@@ -17,20 +17,20 @@ def get_modules():
 def load_site_modules():
     sites = {}
     for file, name, mod in get_modules():
-        if all(map(lambda e: e in mod, ['info_getter', 'site', 'match'])):
+        if all(map(lambda e: e in mod, ['site', 'match'])):
             sites[name] = mod
     return sites
 
 
-def info_getter_selector(**args):
+def collector_selector(**args):
     sites = load_site_modules()
 
     for e in sites.values():
         if (args['url'] and re.match(e['match'], args['url'])) or \
                 (args['query'] and ('query' in e) and e['site'] == args['site']):
-            return e['info_getter']
+            return e['Collector']
 
-    return anysites.info_getter
+    return anysites.Collector
 
 
 def print_sites_info():

@@ -1,7 +1,12 @@
 import argparse
+from asyncio.locks import Semaphore
+
+from aiohttp.client import ClientSession
+from libdlimg.waiter import Waiter
+from libdlimg.sites.wear import Collector
 from libdlimg.list import Mapper
-from libdlimg.error import FATAL, INFO, FILEIO, PROGRESS, Reporter, report
-from libdlimg.lib import normarize_path, show_progress
+from libdlimg.error import FATAL, INFO, FILEIO, PROGRESS, Reporter
+from libdlimg.lib import Fetcher, ImageDownloader, normarize_path
 import sys
 import aiohttp
 import urllib
@@ -18,36 +23,47 @@ import stat
 import signal
 
 
-async def archive_downloader(info_getter, reporter: Reporter = None, **args):
+def show_progress(reporter: Reporter, __progress: int, __total: int):
+    reporter.report(PROGRESS, f'  {__progress}/{__total}  {int(__progress/__total*1000)/10}%', end='\r')
+
+
+async def archive_downloader(
+        collector: Collector,
+        base_directory: str,
+        out_directory: str,
+        semaphore: Semaphore,
+        reporter: Reporter,
+        waiter: Waiter,
+        archive=False,
+        count: int = -1,
+        nodata: bool = False,
+        startnum=0,
+        **args):
     try:
         start = time.time()
 
-        args['semaphore'] = asyncio.Semaphore(args['limit'])
-        args['session'] = aiohttp.ClientSession()
-
-        info = await info_getter(**args)
-        title = re.sub('[<>:"/\\|?*]', '', info['title']).strip()
+        title = re.sub('[<>:"/\\|?*]', '', collector.title).strip()
         reporter.report(INFO, f'title: {title}')
-        imgs = info['imgs']
 
-        bin_path = os.path.join(args['basedir'], args['outdir'] or normarize_path(title))
+        bin_path = os.path.join(base_directory, out_directory or normarize_path(title))
         os.makedirs(bin_path, exist_ok=True)
 
         mapper = Mapper(bin_path, reporter=reporter)
+        image_downloader = ImageDownloader(reporter=reporter, mapper=mapper, waiter=waiter)
 
         # sigint handler
         def on_sigint(n, f):
-            reporter.reporter.report(FATAL, 'SIGINT')
+            reporter.report(FATAL, 'SIGINT')
             mapper.save_map()
             exit(1)
 
         signal.signal(signal.SIGINT, on_sigint)
 
-        i = args['startnum']
+        i = startnum
         tasks = []
         # async runnerに参照で渡す
         params = {'progress': 0}
-        async for img in imgs:
+        async for img in collector.collector(**args):
             if isinstance(img, dict):
                 imgurl = img['url']
                 data = img['data']
@@ -64,7 +80,7 @@ async def archive_downloader(info_getter, reporter: Reporter = None, **args):
             file_path = os.path.join(bin_path, filename)
 
             # データあり
-            if not args['nodata'] and data:
+            if not nodata and data:
                 json_path = os.path.join(bin_path, basename + '.json')
                 reporter.report(INFO, f'writing data -> {json_path}', type=FILEIO)
                 with open(json_path, 'wt', encoding='utf-8') as fp:
@@ -80,9 +96,9 @@ async def archive_downloader(info_getter, reporter: Reporter = None, **args):
             # ファイルが存在しない場合は非同期ダウンロード
             if not exists_file:
                 async def runner(imgurl, file_path):
-                    ret: dict = await lib.download_img(imgurl, file_path, **args)
+                    ret: dict = await image_downloader.download_img(imgurl, file_path)
                     params['progress'] += 1
-                    show_progress(params['progress'], len(tasks), **args)
+                    show_progress(reporter, params['progress'], len(tasks))
                     if ret:
                         ret['size'] = os.stat(ret['path']).st_size
                     return ret
@@ -92,21 +108,19 @@ async def archive_downloader(info_getter, reporter: Reporter = None, **args):
             else:
                 reporter.report(INFO, f'skip {imgurl} == {exists_file}')
 
-            if args['count'] != -1 and i+1 >= args['count']:
+            if count != -1 and i+1 >= count:
                 break
 
             i += 1
 
         downloaded = await asyncio.gather(*tasks)
-        await args['session'].close()
-
         mapper.save_map()
 
         total_size = 0
         for e in [e for e in downloaded if e]:
             total_size += e['size']
 
-        if args['archive']:
+        if archive:
             reporter.report(INFO, f'archiving to {bin_path+".zip"}', type=FILEIO)
             shutil.make_archive(bin_path, 'zip', root_dir=bin_path)
             shutil.rmtree(bin_path)

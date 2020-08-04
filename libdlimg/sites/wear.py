@@ -1,12 +1,20 @@
+from libdlimg.waiter import Waiter
+from libdlimg.error import Reporter
 import bs4
 import re
 from .. import lib
 import urllib.parse
 
-site = 'wear'
+# site = 'wear'
 match = re.compile('https?://wear.jp/.*')
 
+
 class Collector():
+    def __init__(self, reporter: Reporter = None, waiter: Waiter = None):
+        self.reporter = reporter
+        self.waiter = waiter
+        self.title = 'wear'
+
     async def user_links_fn(page_num, **args):
         url = args['url'] + f'?pageno={page_num}'
         ret = {}
@@ -49,15 +57,13 @@ class Collector():
                 })
             return links
 
-
-    async def user_collector(**args):
-        async for user in lib.paged_collector(links_fn=user_links_fn, ** args):
-            async for img in lib.paged_collector(links_fn=gallery_links_fn, ps=1, pe=-1, params=user, ** args):
+    async def user_collector(self, **args):
+        async for user in lib.paged_collector(links_fn=self.user_links_fn, ** args):
+            async for img in lib.paged_collector(links_fn=self.gallery_links_fn, ps=1, pe=-1, params=user, ** args):
                 async with lib.concurrent_semaphore:
                     yield img
 
-
-    async def gallery_links_fn(page_num, params=None, **args):
+    async def gallery_links_fn(self, page_num, params=None, **args):
         _url = params['url'] if params and 'url' in params else args['url']
         url = _url + f'?pageno={page_num}'
         ret = {}
@@ -96,23 +102,15 @@ class Collector():
                 })
             return links
 
-
-    async def gallery_collector(**args):
-        async for img in lib.paged_collector(links_fn=gallery_links_fn, ** args):
+    async def gallery_collector(self, **args):
+        async for img in lib.paged_collector(links_fn=self.gallery_links_fn, ** args):
             async with lib.concurrent_semaphore:
                 yield img
 
-    async def collector(**args):
+    async def collector(self, **args):
         if re.match('https?://wear.jp/user/.*', args['url']):
-            async for e in user_collector(**args):
+            async for e in self.user_collector(**args):
                 yield e
         else:
-            async for e in gallery_collector(**args):
+            async for e in self.gallery_collector(**args):
                 yield e
-
-
-async def info_getter(**args):
-    return {
-        'title': 'wear',
-        'imgs': collector(**args)
-    }

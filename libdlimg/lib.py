@@ -1,6 +1,7 @@
 from asyncio.locks import Semaphore
 from functools import cached_property
 import json
+from os import stat_result
 
 from aiohttp.client import ClientSession
 from libdlimg.waiter import Waiter
@@ -24,30 +25,29 @@ import concurrent.futures
 import aiohttp.client_exceptions
 import traceback
 import sys
-from libdlimg.error import ERROR, INFO, NETWORK, PROGRESS, FILEIO, Reporter, report
+from libdlimg.error import ERROR, INFO, NETWORK, PROGRESS, FILEIO, Reporter
 
 concurrent_semaphore = asyncio.Semaphore(10)
-executor = concurrent.futures.ThreadPoolExecutor(10)
+# executor = concurrent.futures.ThreadPoolExecutor(10)
 waiter_table = {}
-imgmap = None
+# imgmap = None
 
 CACHE_VERSION = 1
 
 
-def show_progress(__progress: int, __total: int, **args):
-    reporter.report(PROGRESS, f'  {__progress}/{__total}  {int(__progress/__total*1000)/10}%', end='\r')
-
-
 class ImageDownloader():
-    def __init__(self, reporter: Reporter = None,
-                 mapper: Mapper = None):
+    def __init__(self,
+                 reporter: Reporter = None,
+                 mapper: Mapper = None,
+                 waiter: Waiter = None):
         self.reporter = reporter
         self.mapper = mapper
+        self.waiter = waiter
 
     async def download_img(self, __url, __path, **args):
         # waiter
-        if 'waiter' in args:
-            await args['waiter'].wait(__url)
+        if self.waiter:
+            await self.waiter.wait(__url)
 
         try:
             async with concurrent_semaphore:
@@ -88,45 +88,8 @@ class ImageDownloader():
             return None
 
 
-def single_selector_collector(__url, __selector, __attr='src', **args):
-    async def get_imgs():
-        doc = await fetch_doc(__url, **args)
-        urls = list(map(lambda e: e[__attr], doc.select(__selector)))
-        for url in urls:
-            yield url
-
-    return get_imgs
-
-
-async def single_one_selector(params, **args):
-    doc = await fetch_doc(params['url'], **args)
-    return doc.select_one(params['selector'])[params['attr']]
-
-
-async def multiple_selector(params, **args):
-    doc = await fetch_doc(params['url'], **args)
-    return list(map(lambda e: e[params['attr']], doc.select(params['selector'])))
-
-
-async def paged_collector(links_fn, ps=None, pe=None, params=None, ** args):
-    page_num = ps if ps != None else (args['pagestart'] if 'pagestart' in args else 1)
-    page_end = pe if pe != None else (args['pageend'] if 'pageend' in args else -1)
-    while True:
-        if params:
-            links = await links_fn(page_num, params, **args)
-        else:
-            links = await links_fn(page_num, **args)
-
-        for link in links:
-            yield link
-        if len(links) == 0 or (page_end != -1 and page_num >= page_end):
-            break
-        page_num += 1
-
-
 class Fetcher():
     def __init__(self,
-                 session: ClientSession,
                  semaphore: Semaphore,
                  reporter: Reporter = None,
                  waiter: Waiter = None,
@@ -135,7 +98,7 @@ class Fetcher():
                  usecache: bool = True,
                  useragent: str = ''
                  ) -> None:
-        self.session = session
+        self.session = ClientSession()
         self.semaphore = semaphore
         self.reporter = reporter
         self.waiter = waiter
@@ -144,7 +107,10 @@ class Fetcher():
         self.usecache = usecache
         self.useragent = useragent
 
-    async def fetch(self, __url: str, ret={}, **args):
+    async def close(self):
+        await self.session.close()
+
+    async def fetch(self, __url: str, ret={}):
         if self.usecache:
             obj = self.load_cache(__url)
             if obj:
@@ -173,10 +139,10 @@ class Fetcher():
                         if self.cache:
                             self.save_fetched(__url, text, {
                                 'realurl': str(res.url)
-                            }, **args)
+                            })
                         return text
                     else:
-                        self.reporter.report(ERROR, f'fetch(): {__url}', type=NETWORK)
+                        self.reporter.report(ERROR, f'error response {res.status} {__url}', type=NETWORK)
                         return None
         except Exception as e:
             self.reporter.report(ERROR, f'skip {__url} {e}', file=sys.stderr, type=NETWORK)
@@ -231,63 +197,9 @@ class Fetcher():
             self.reporter.report(INFO, f'writing {htmlpath}', type=FILEIO)
             f.write(__body)
 
-    # async def fetch_by_browser2(__url: str, **args):
-    #     from selenium.webdriver.firefox.options import Options
-    #     from selenium import webdriver
-
-    #     def get():
-    #         firefox_options = Options()
-    #         firefox_options.add_argument("--headless")
-    #         driver = webdriver.Firefox(options=firefox_options)
-    #         driver.get(__url)
-
-    #         while True:
-    #             state = driver.execute_script('return document.readyState')
-    #             if state == 'complete':
-    #                 break
-    #             time.sleep(0.1)
-
-    #         html = driver.find_element_by_tag_name('html').get_attribute('innerHTML')
-    #         driver.quit()
-    #         return html
-
-    #     reporter.report(INFO, f'fetched {__url}', type=NETWORK)
-    #     return get()
-
-    # async def fetch_by_browser(__url: str, **args):
-    #     from selenium.webdriver.chrome.options import Options
-    #     from selenium import webdriver
-
-    #     def get():
-    #         chrome_options = Options()
-    #         chrome_options.add_argument("--headless")
-    #         driver = webdriver.Chrome(options=chrome_options)
-    #         driver.get(__url)
-
-    #         while True:
-    #             state = driver.execute_script('return document.readyState')
-    #             if state == 'complete':
-    #                 break
-    #             time.sleep(0.1)
-
-    #         html = driver.find_element_by_tag_name('html').get_attribute('innerHTML')
-    #         driver.quit()
-    #         return html
-
-    #     async def async_get():
-    #         future = executor.submit(get)
-    #         return future.result()
-
-    #     async with args['semaphore']:
-    #         print('start')
-    #         task = asyncio.ensure_future(async_get())
-    #         result = (await asyncio.gather(task))[0]
-    #         print('fetched', __url)
-    #         return result
-
     async def fetch_doc(self, __url: str, ret={}):
         html = await self.fetch(__url, ret)
-        return bs4.BeautifulSoup(html, 'lxml')
+        return html and bs4.BeautifulSoup(html, 'lxml')
 
 
 def name_keep(params, **args):
@@ -369,3 +281,39 @@ async def parallel_for(generator, async_fn, **args):
 
 def normarize_path(__path: str) -> str:
     return re.sub('[ ]', '_', __path)
+
+
+def single_selector_collector(__url, __selector, __attr='src', fetcher: Fetcher = None, **args):
+    async def get_imgs():
+        doc = await fetcher.fetch_doc(__url)
+        urls = list(map(lambda e: e[__attr], doc.select(__selector)))
+        for url in urls:
+            yield url
+
+    return get_imgs
+
+
+async def single_one_selector(params, fetcher: Fetcher = None):
+    doc = await fetcher.fetch_doc(params['url'])
+    return doc.select_one(params['selector'])[params['attr']]
+
+
+async def multiple_selector(params, fetcher: Fetcher = None):
+    doc = await fetcher.fetch_doc(params['url'])
+    return list(map(lambda e: e[params['attr']], doc.select(params['selector'])))
+
+
+async def paged_collector(links_fn, ps=None, pe=None, params=None, ** args):
+    page_num = ps if ps != None else (args['pagestart'] if 'pagestart' in args else 1)
+    page_end = pe if pe != None else (args['pageend'] if 'pageend' in args else -1)
+    while True:
+        if params:
+            links = await links_fn(page_num, params, **args)
+        else:
+            links = await links_fn(page_num, **args)
+
+        for link in links:
+            yield link
+        if len(links) == 0 or (page_end != -1 and page_num >= page_end):
+            break
+        page_num += 1

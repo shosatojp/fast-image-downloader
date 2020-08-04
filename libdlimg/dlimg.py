@@ -1,13 +1,18 @@
 #!/usr/bin/python3
+from asyncio.locks import Semaphore
+import os
 import sys
 import asyncio
+
+import aiohttp
+from libdlimg.lib import Fetcher
 from libdlimg.waiter import Waiter, select_waiter
 import libdlimg.core
 import libdlimg.sites
 import libdlimg.lib
 import argparse
 import signal
-from libdlimg.error import FATAL, INFO, Reporter, WARN, report
+from libdlimg.error import FATAL, INFO, Reporter, WARN
 
 
 parser = argparse.ArgumentParser('fast image downloader')
@@ -54,16 +59,37 @@ if not (args_dict['url'] or (args_dict['query'] and args_dict['site'])):
 
 args_dict['name_fn'] = libdlimg.lib.select_name(args_dict['name'])
 args_dict['threading'] = args_dict['selenium']
-args_dict['waiter'] = Waiter(**args_dict)
+waiter = Waiter(**args_dict)
 
-
-info_getter = libdlimg.sites.info_getter_selector(**args_dict)
-loop = asyncio.get_event_loop()
 
 reporter = Reporter(args.loglevel, args.handler, args.handlelevel)
-
-reporter.report(WARN, f'start crawling: `{" ".join(sys.argv)}`', **args_dict)
-loop.run_until_complete(
-    libdlimg.core.archive_downloader(info_getter, reporter=reporter
-                                     ** args_dict)
+semaphore = asyncio.Semaphore(args.limit)
+fetcher = Fetcher(
+    semaphore=semaphore,
+    waiter=waiter,
+    cache=args.savefetched,
+    usecache=args.usecache,
+    cachedir=os.path.join(args.basedir, args.outdir),
+    reporter=reporter,
+    useragent=args.useragent,
 )
+
+collector = libdlimg.sites.collector_selector(**args_dict)(
+    reporter=reporter,
+    waiter=waiter,
+    fetcher=fetcher,
+)
+
+reporter.report(WARN, f'start crawling: `{" ".join(sys.argv)}`')
+
+
+async def main():
+
+    await libdlimg.core.archive_downloader(collector, args.basedir, args.outdir, semaphore,
+                                           reporter=reporter,
+                                           waiter=waiter,
+                                           ** args_dict)
+    await fetcher.close()
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main())

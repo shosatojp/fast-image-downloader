@@ -2,7 +2,7 @@ from .. import lib
 import re
 import urllib.parse
 
-site = 'yandere'
+# site = 'yandere'
 match = re.compile('https?://yande.re/post\\?tags=.*')
 query = True
 

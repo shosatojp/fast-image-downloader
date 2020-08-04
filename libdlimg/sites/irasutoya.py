@@ -3,7 +3,7 @@ import re
 import urllib
 import urllib.parse
 
-site = 'irasutoya'
+# site = 'irasutoya'
 match = re.compile('https?://www.irasutoya.com/search\\?q=.*')
 query = True
 
