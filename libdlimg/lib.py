@@ -4,7 +4,7 @@ from random import Random
 
 from aiohttp.client import ClientSession
 from libdlimg.waiter import Waiter
-from libdlimg.list import Mapper
+from libdlimg.list import FileList, Mapper
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 import time
@@ -31,11 +31,13 @@ class ImageDownloader():
                  reporter: Reporter = None,
                  mapper: Mapper = None,
                  waiter: Waiter = None,
-                 semaphore: Semaphore = None):
+                 semaphore: Semaphore = None,
+                 filelister: FileList = None):
         self.reporter = reporter
         self.mapper = mapper
         self.waiter = waiter
         self.semaphore = semaphore
+        self.filelister = filelister
 
     async def download_img(self, __url, __path, **args):
         # waiter
@@ -68,6 +70,7 @@ class ImageDownloader():
 
             if os.path.exists(tmp_path):
                 shutil.move(tmp_path, __path)
+                self.filelister.add(__path)
 
             # save mapdata
             self.mapper.write_map(__url, filename)
@@ -89,7 +92,8 @@ class Fetcher():
                  cachedir: str = '',
                  cache: bool = True,
                  usecache: bool = True,
-                 useragent: str = ''
+                 useragent: str = '',
+                 filelister: FileList = None,
                  ) -> None:
         self.session = ClientSession()
         self.semaphore = semaphore
@@ -99,6 +103,7 @@ class Fetcher():
         self.cache = cache
         self.usecache = usecache
         self.useragent = useragent
+        self.filelister = filelister
         self.CACHE_VERSION = 1
 
     async def close(self):
@@ -150,11 +155,13 @@ class Fetcher():
         html = None
 
         if os.path.exists(htmlpath):
+            self.filelister.add(htmlpath)
             with open(htmlpath, 'rt', encoding='utf-8') as f:
                 self.reporter.report(INFO, f'reading {htmlpath}', type=FILEIO)
                 html = f.read()
 
         if os.path.exists(jsonpath):
+            self.filelister.add(jsonpath)
             with open(jsonpath, 'rt', encoding='utf-8') as f:
                 self.reporter.report(INFO, f'reading {jsonpath}', type=FILEIO)
                 obj = json.load(f)
@@ -164,6 +171,7 @@ class Fetcher():
                 if 'body' in obj:
                     html = obj['body']
                     with open(htmlpath, 'wt', encoding='utf-8') as f:
+                        self.filelister.add(htmlpath)
                         self.reporter.report(INFO, f'writing {htmlpath}', type=FILEIO)
                         f.write(obj['body'])
                     del obj['body']
@@ -186,9 +194,11 @@ class Fetcher():
         jsonpath = os.path.join(self.cachedir, filename+'.json')
         __obj['cache_version'] = self.CACHE_VERSION
         with open(jsonpath, 'wt', encoding='utf-8') as f:
+            self.filelister.add(jsonpath)
             self.reporter.report(INFO, f'writing {jsonpath}', type=FILEIO,)
             json.dump(__obj, f)
         with open(htmlpath, 'wt', encoding='utf-8') as f:
+            self.filelister.add(htmlpath)
             self.reporter.report(INFO, f'writing {htmlpath}', type=FILEIO)
             f.write(__body)
 

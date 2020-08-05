@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 from asyncio.locks import Semaphore
+from libdlimg.list import FileList
 import os
 import sys
 import asyncio
@@ -24,11 +25,11 @@ parser.add_argument('--startnum', '-sn', type=int, default=0, help='image number
 parser.add_argument('--namelen', '-nl', type=int, default=-1, help='max length of filename')
 parser.add_argument('--pagestart', '-ps', type=int, default=1, help='page start')
 parser.add_argument('--pageend', '-pe', type=int, default=-1, help='page end')
-parser.add_argument('--filelist', '-F', action='store_true', default=True, help='outputs pagefile')
+parser.add_argument('--filelist', '-F', type=str, default='', help='outputs pagefile')
 parser.add_argument('--count', '-c', type=int, default=-1, help='max count')
 parser.add_argument('--outdir', '-o', default='', help='output directory name')
 parser.add_argument('--basedir', '-b', default='', help='output base directory name')
-parser.add_argument('--limit', '-l', default=100, type=int, help='limit of concurrent fetching')
+parser.add_argument('--limit', '-l', default=10, type=int, help='limit of concurrent fetching')
 parser.add_argument('--quality', '-q', default=0, type=int, help='image quality. 0 is the highest.')
 parser.add_argument('--query', '-s', default='',  help='query for search')
 parser.add_argument('--site', '-t', default='',  help='site name')
@@ -63,6 +64,7 @@ waiter = Waiter(**args_dict)
 
 reporter = Reporter(args.loglevel, args.handler, args.handlelevel)
 semaphore = asyncio.Semaphore(args.limit)
+filelist = FileList(args.filelist, reporter=reporter)
 fetcher = Fetcher(
     semaphore=semaphore,
     waiter=waiter,
@@ -71,6 +73,7 @@ fetcher = Fetcher(
     cachedir=os.path.join(args.basedir, args.outdir),
     reporter=reporter,
     useragent=args.useragent,
+    filelister=filelist,
 )
 
 collector = libdlimg.sites.collector_selector(**args_dict)(
@@ -88,6 +91,7 @@ async def main():
     await libdlimg.core.archive_downloader(collector, args.basedir, args.outdir, semaphore,
                                            reporter=reporter,
                                            waiter=waiter,
+                                           filelister=filelist,
                                            ** args_dict)
     await fetcher.close()
 

@@ -15,12 +15,11 @@ class Collector():
     def __init__(self,
                  reporter: Reporter = None,
                  waiter: Waiter = None,
-                 fetcher: Fetcher = None,
-                 semaphore: Semaphore = None):
+                 fetcher: Fetcher = None):
         self.reporter = reporter
         self.waiter = waiter
         self.fetcher = fetcher
-        self.semaphore = semaphore
+        self.semaphore = Semaphore(10)
         self.title = 'wear'
 
     async def gettitle(self, url: str):

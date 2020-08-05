@@ -21,6 +21,7 @@ class Collector():
         self.reporter = reporter
         self.waiter = waiter
         self.fetcher = fetcher
+        self.semaphore = Semaphore(10)
         self.title = 'bing'
 
     async def gettitle(self, url: str):
@@ -28,19 +29,21 @@ class Collector():
 
     async def collector(self, **args):
         async def links_fn(page_num, **args):
-            if args['query']:
-                url = f'https://www.bing.com/images/search?q={urllib.parse.quote(args["query"])}&first={28*(page_num-1)+1}&count={28}'
-            else:
-                url = args['url'] + f'&first={28*(page_num-1)+1}&count={28}'
-            doc = await self.fetcher.fetch_doc(url)
+            async with self.semaphore:
+                if args['query']:
+                    url = f'https://www.bing.com/images/search?q={urllib.parse.quote(args["query"])}&first={28*(page_num-1)+1}&count={28}'
+                else:
+                    url = args['url'] + f'&first={28*(page_num-1)+1}&count={28}'
+                doc = await self.fetcher.fetch_doc(url)
 
-            if args['quality'] == 0:
-                return list(map(lambda e: e['href'], doc.select('a.thumb')))
-            elif args['quality'] == 1:
-                return list(map(lambda e: e['src'], doc.select('a.thumb img')))
-            else:
-                self.reporter.report(FATAL, 'no such quality for bing (0-1)')
-                exit(1)
+                if args['quality'] == 0:
+                    return list(map(lambda e: e['href'], doc.select('a.thumb')))
+                elif args['quality'] == 1:
+                    return list(map(lambda e: e['src'], doc.select('a.thumb img')))
+                else:
+                    self.reporter.report(FATAL, 'no such quality for bing (0-1)')
+                    exit(1)
 
         async for img in lib.paged_collector(links_fn=links_fn, ** args):
-            yield img
+            async with self.semaphore:
+                yield img

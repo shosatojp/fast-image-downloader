@@ -4,7 +4,7 @@ from asyncio.locks import Semaphore
 from aiohttp.client import ClientSession
 from libdlimg.waiter import Waiter
 from libdlimg.sites.wear import Collector
-from libdlimg.list import Mapper
+from libdlimg.list import FileList, Mapper
 from libdlimg.error import FATAL, INFO, FILEIO, PROGRESS, Reporter
 from libdlimg.lib import Fetcher, ImageDownloader, normarize_path, select_namer
 import sys
@@ -38,6 +38,7 @@ async def archive_downloader(
         count: int = -1,
         nodata: bool = False,
         startnum=0,
+        filelister: FileList = None,
         **args):
     try:
         start = time.time()
@@ -49,12 +50,17 @@ async def archive_downloader(
         os.makedirs(bin_path, exist_ok=True)
 
         mapper = Mapper(bin_path, reporter=reporter)
-        image_downloader = ImageDownloader(reporter=reporter, mapper=mapper, waiter=waiter, semaphore=semaphore)
+        image_downloader = ImageDownloader(reporter=reporter,
+                                           mapper=mapper,
+                                           waiter=waiter,
+                                           semaphore=semaphore,
+                                           filelister=filelister)
 
         # sigint handler
         def on_sigint(n, f):
             reporter.report(FATAL, 'SIGINT')
             mapper.save_map()
+            filelister.write()
             exit(1)
 
         signal.signal(signal.SIGINT, on_sigint)
@@ -104,6 +110,7 @@ async def archive_downloader(
                 task = asyncio.ensure_future(runner(imgurl, file_path))
                 tasks.append(task)
             else:
+                filelister.add(exists_file)
                 reporter.report(INFO, f'skip {imgurl} == {exists_file}')
 
             if count != -1 and i+1 >= count:

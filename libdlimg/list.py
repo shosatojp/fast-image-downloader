@@ -1,27 +1,34 @@
-from libdlimg.error import INFO, FILEIO
+from libdlimg.error import INFO, FILEIO, Reporter
 import os
 import json
 
 
 class FileList():
-    def __init__(self, listfile: str, max=100):
+    def __init__(self, listfile: str, max=100, reporter: Reporter = None):
         self.listfile = listfile
         self.list = []
         self.max = max
+        self.reporter = reporter
+        if self.listfile:
+            with open(self.listfile, 'wt', encoding='utf-8') as f:
+                f.write('')
 
     def add(self, path: str):
         self.list.append(path)
 
         if len(path) == self.max:
             self.write()
+            self.list = []
 
     def write(self):
-        with open(self.listfile, 'wt', encoding='utf-8') as f:
-            f.write('\n'.join(self.list)+'\n')
+        if self.listfile:
+            with open(self.listfile, 'wt', encoding='utf-8') as f:
+                self.reporter.report(INFO, f'writing {self.listfile}', type=FILEIO)
+                f.write('\n'.join(self.list)+'\n')
 
 
 class Mapper():
-    def __init__(self, outdir: str, reporter=None):
+    def __init__(self, outdir: str, reporter: Reporter = None):
         self.outdir = outdir
         self.mapfile = os.path.join(outdir, 'map.json')
 
