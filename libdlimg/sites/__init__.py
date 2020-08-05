@@ -10,7 +10,8 @@ def get_modules():
     for file in files:
         name = file.replace('.py', '')
         mod = vars(importlib.import_module('libdlimg.sites.'+name))
-        modules.append((file, name, mod))
+        if all(map(lambda e: e in mod, ['site', 'match', 'Collector'])):
+            modules.append((file, name, mod))
     return modules
 
 

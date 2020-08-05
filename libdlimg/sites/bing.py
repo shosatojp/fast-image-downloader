@@ -44,6 +44,5 @@ class Collector():
                     self.reporter.report(FATAL, 'no such quality for bing (0-1)')
                     exit(1)
 
-        async for img in lib.paged_collector(links_fn=links_fn, ** args):
-            async with self.semaphore:
-                yield img
+        async for img in lib.paged_collector(links_fn, args['pagestart'], args['pageend'], ** args):
+            yield img

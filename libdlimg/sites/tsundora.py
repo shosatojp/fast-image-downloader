@@ -23,11 +23,11 @@ class Collector():
                  reporter: Reporter = None,
                  waiter: Waiter = None,
                  fetcher: Fetcher = None,
-                 semaphore: Semaphore = None):
+                 **others):
         self.reporter = reporter
         self.waiter = waiter
         self.fetcher = fetcher
-        self.semaphore = semaphore
+        self.semaphore = Semaphore(10)
         self.title = 'tsundora'
 
     async def gettitle(self, url: str):
@@ -55,24 +55,25 @@ class Collector():
         async def links_fn(page_num, **args):
             url = __url_format.replace('{page}', str(page_num))
             doc = await self.fetcher.fetch_doc(url)
-            if args['quality'] == 0 or args['quality'] == 1:
-                return list(map(lambda e: e['href'], doc.select('.home-img > a')))
-            elif args['quality'] == 2:
-                return list(map(lambda e: e['src'], doc.select('.home-img > a > img')))
+            if doc:
+                if args['quality'] == 0 or args['quality'] == 1:
+                    return list(map(lambda e: e['href'], doc.select('.home-img > a')))
+                elif args['quality'] == 2:
+                    return list(map(lambda e: e['src'], doc.select('.home-img > a > img')))
+            else:
+                return []
 
         if args['quality'] == 0 or args['quality'] == 1:
             async for img in lib.parallel_for(
-                generator=lib.paged_collector(links_fn=links_fn, ** args),
+                generator=lib.paged_collector(links_fn, args['pagestart'], args['pageend'], ** args),
                 async_fn=self.second_and_third,
-                semaphore=self.semaphore,
                 ** args
             ):
                 yield img
 
         elif args['quality'] == 2:
-            async for second_page in lib.paged_collector(links_fn=links_fn, ** args):
-                async with lib.concurrent_semaphore:
-                    yield second_page
+            async for second_page in lib.paged_collector(links_fn, args['pagestart'], args['pageend'], ** args):
+                yield second_page
         else:
             print('no such quality for tsundora')
             exit(1)

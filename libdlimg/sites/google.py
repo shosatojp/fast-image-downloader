@@ -35,5 +35,5 @@ class Collector():
             doc = await self.fetcher.fetch_doc(url)
             return list(map(lambda e: e['src'], doc.select('img.t0fcAb'))) if doc else []
 
-        async for img in lib.paged_collector(links_fn=links_fn, ** args):
+        async for img in lib.paged_collector(links_fn, args['pagestart'], args['pageend'], ** args):
             yield img

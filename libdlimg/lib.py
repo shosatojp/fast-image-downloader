@@ -3,6 +3,7 @@ import json
 from random import Random
 
 from aiohttp.client import ClientSession
+from soupsieve.css_parser import PAT_PSEUDO_CONTAINS
 from libdlimg.waiter import Waiter
 from libdlimg.list import FileList, Mapper
 import urllib.parse
@@ -166,7 +167,6 @@ class Fetcher():
                             })
                         return text
                     else:
-                        print(await res.text())
                         self.reporter.report(ERROR, f'error response {res.status} {__url}', type=NETWORK)
                         return None
         except Exception as e:
@@ -298,7 +298,7 @@ def exists_prefix(rootdir, prefix):
         return False
 
 
-async def parallel_for(generator, async_fn, **args):
+async def parallel_for(generator, async_fn, parallel: int = 10, **args):
     if args['threading']:
         def run_in_new_loop(async_fn, *args, **kwargs):
             loop = asyncio.new_event_loop()
@@ -314,19 +314,17 @@ async def parallel_for(generator, async_fn, **args):
         for f in fs:
             yield f.result()
     else:
-        pending = []
-
-        # semaphoreで調整しながら並列化する
+        pending = set()
         async for page in generator:
-            async with args['semaphore']:
-                pending.append(asyncio.ensure_future(async_fn(page, **args)))
 
-        # 並列化したやつを非同期的に待ち直列化する
-        while len(pending):
-            done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
-            for t in done:
-                for img in t.result():
-                    yield img
+            if len(pending) <= parallel:
+                pending.add(asyncio.ensure_future(async_fn(page, **args)))
+
+            else:
+                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                for t in done:
+                    for img in t.result():
+                        yield img
 
 
 def normarize_path(__path: str) -> str:
@@ -343,27 +341,25 @@ def single_selector_collector(__url, __selector, __attr='src', fetcher: Fetcher 
     return get_imgs
 
 
-async def single_one_selector(params, fetcher: Fetcher = None, **args):
+async def single_one_selector(params, fetcher: Fetcher, **args):
     doc = await fetcher.fetch_doc(params['url'])
     return doc.select_one(params['selector'])[params['attr']]
 
 
-async def multiple_selector(params, fetcher: Fetcher = None, **args):
+async def multiple_selector(params, fetcher: Fetcher, **args):
     doc = await fetcher.fetch_doc(params['url'])
     return list(map(lambda e: e[params['attr']], doc.select(params['selector'])))
 
 
-async def paged_collector(links_fn, ps=None, pe=None, params=None, ** args):
-    page_num = ps if ps != None else (args['pagestart'] if 'pagestart' in args else 1)
-    page_end = pe if pe != None else (args['pageend'] if 'pageend' in args else -1)
+async def paged_collector(links_fn, ps: int, pe: int, params=None, ** args):
     while True:
         if params:
-            links = await links_fn(page_num, params, **args)
+            links = await links_fn(ps, params, **args)
         else:
-            links = await links_fn(page_num, **args)
+            links = await links_fn(ps, **args)
 
         for link in links:
             yield link
-        if len(links) == 0 or (page_end != -1 and page_num >= page_end):
+        if len(links) == 0 or (pe != -1 and ps >= pe):
             break
-        page_num += 1
+        ps += 1
