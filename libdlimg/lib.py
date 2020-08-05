@@ -239,15 +239,18 @@ class Namer():
     def getname(self, url: str = '', ext: str = '', number: int = 0) -> str:
         pass
 
+    def getnameext(self, url: str):
+        parsed = urllib.parse.urlparse(url)
+        filename = os.path.split(parsed.path)[1]
+        return os.path.splitext(filename)
+
 
 class KeepedNamer(Namer):
     def __init__(self, namelen) -> None:
         super(KeepedNamer, self).__init__(namelen)
 
     def getname(self, url: str = '', ext: str = '', number: int = 0):
-        parsed = urllib.parse.urlparse(url)
-        filename = os.path.split(parsed.path)[1]
-        name, _ext = os.path.splitext(filename)
+        name, _ext = self.getnameext(url)
         if self.namelen > 0:
             name = name[:self.namelen]
         return name + (_ext or ext)
@@ -258,8 +261,9 @@ class NumberddNamer(Namer):
         super(NumberddNamer, self).__init__(namelen)
 
     def getname(self, url: str = '', ext: str = '', number: int = 0):
+        name, _ext = self.getnameext(url)
         namelen = self.namelen if self.namelen > 0 else 5
-        return str(number).zfill(namelen) + ext
+        return str(number).zfill(namelen) + (_ext or ext)
 
 
 class RandomNamer(Namer):
@@ -267,9 +271,10 @@ class RandomNamer(Namer):
         super(RandomNamer, self).__init__(namelen)
 
     def getname(self, url: str = '', ext: str = '', number: int = 0):
+        name, _ext = self.getnameext(url)
         namelen = self.namelen if self.namelen > 0 else 5
         rand = [random.choice(string.ascii_letters + string.digits) for i in range(namelen)]
-        return ''.join(rand) + ext
+        return ''.join(rand) + (_ext or ext)
 
 
 def select_namer(src: str, namelen: int) -> Namer:
