@@ -6,7 +6,7 @@ from libdlimg.waiter import Waiter
 from libdlimg.sites.wear import Collector
 from libdlimg.list import Mapper
 from libdlimg.error import FATAL, INFO, FILEIO, PROGRESS, Reporter
-from libdlimg.lib import Fetcher, ImageDownloader, normarize_path
+from libdlimg.lib import Fetcher, ImageDownloader, normarize_path, select_namer
 import sys
 import aiohttp
 import urllib
@@ -42,14 +42,14 @@ async def archive_downloader(
     try:
         start = time.time()
 
-        title = re.sub('[<>:"/\\|?*]', '', collector.title).strip()
+        title = re.sub('[<>:"/\\|?*]', '', await collector.gettitle(args['url'])).strip()
         reporter.report(INFO, f'title: {title}')
 
         bin_path = os.path.join(base_directory, out_directory or normarize_path(title))
         os.makedirs(bin_path, exist_ok=True)
 
         mapper = Mapper(bin_path, reporter=reporter)
-        image_downloader = ImageDownloader(reporter=reporter, mapper=mapper, waiter=waiter)
+        image_downloader = ImageDownloader(reporter=reporter, mapper=mapper, waiter=waiter, semaphore=semaphore)
 
         # sigint handler
         def on_sigint(n, f):
@@ -58,6 +58,8 @@ async def archive_downloader(
             exit(1)
 
         signal.signal(signal.SIGINT, on_sigint)
+
+        namer = select_namer(args['name'], args['namelen'])
 
         i = startnum
         tasks = []
@@ -71,11 +73,7 @@ async def archive_downloader(
                 imgurl = img
                 data = None
 
-            filename = args['name_fn']({
-                'number': i,
-                'url': imgurl,
-                'ext': ''
-            }, **args)
+            filename = namer.getname(url=imgurl, ext='', number=i)
             basename, _ = os.path.splitext(filename)
             file_path = os.path.join(bin_path, filename)
 

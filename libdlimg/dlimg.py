@@ -28,7 +28,7 @@ parser.add_argument('--filelist', '-F', action='store_true', default=True, help=
 parser.add_argument('--count', '-c', type=int, default=-1, help='max count')
 parser.add_argument('--outdir', '-o', default='', help='output directory name')
 parser.add_argument('--basedir', '-b', default='', help='output base directory name')
-parser.add_argument('--limit', '-l', default=10, type=int, help='limit of concurrent fetching')
+parser.add_argument('--limit', '-l', default=100, type=int, help='limit of concurrent fetching')
 parser.add_argument('--quality', '-q', default=0, type=int, help='image quality. 0 is the highest.')
 parser.add_argument('--query', '-s', default='',  help='query for search')
 parser.add_argument('--site', '-t', default='',  help='site name')
@@ -57,7 +57,6 @@ if not (args_dict['url'] or (args_dict['query'] and args_dict['site'])):
     parser.print_usage()
     exit(1)
 
-args_dict['name_fn'] = libdlimg.lib.select_name(args_dict['name'])
 args_dict['threading'] = args_dict['selenium']
 waiter = Waiter(**args_dict)
 
@@ -78,6 +77,7 @@ collector = libdlimg.sites.collector_selector(**args_dict)(
     reporter=reporter,
     waiter=waiter,
     fetcher=fetcher,
+    semaphore=semaphore,
 )
 
 reporter.report(WARN, f'start crawling: `{" ".join(sys.argv)}`')

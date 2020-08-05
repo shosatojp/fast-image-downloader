@@ -1,7 +1,6 @@
 from asyncio.locks import Semaphore
-from functools import cached_property
 import json
-from os import stat_result
+from random import Random
 
 from aiohttp.client import ClientSession
 from libdlimg.waiter import Waiter
@@ -21,28 +20,22 @@ import random
 import string
 import aiofiles
 import mimetypes
-import concurrent.futures
 import aiohttp.client_exceptions
 import traceback
 import sys
 from libdlimg.error import ERROR, INFO, NETWORK, PROGRESS, FILEIO, Reporter
-
-concurrent_semaphore = asyncio.Semaphore(10)
-# executor = concurrent.futures.ThreadPoolExecutor(10)
-waiter_table = {}
-# imgmap = None
-
-CACHE_VERSION = 1
 
 
 class ImageDownloader():
     def __init__(self,
                  reporter: Reporter = None,
                  mapper: Mapper = None,
-                 waiter: Waiter = None):
+                 waiter: Waiter = None,
+                 semaphore: Semaphore = None):
         self.reporter = reporter
         self.mapper = mapper
         self.waiter = waiter
+        self.semaphore = semaphore
 
     async def download_img(self, __url, __path, **args):
         # waiter
@@ -50,7 +43,7 @@ class ImageDownloader():
             await self.waiter.wait(__url)
 
         try:
-            async with concurrent_semaphore:
+            async with self.semaphore:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(__url) as res:
                         if res.status == 200:
@@ -106,6 +99,7 @@ class Fetcher():
         self.cache = cache
         self.usecache = usecache
         self.useragent = useragent
+        self.CACHE_VERSION = 1
 
     async def close(self):
         await self.session.close()
@@ -142,6 +136,7 @@ class Fetcher():
                             })
                         return text
                     else:
+                        print(await res.text())
                         self.reporter.report(ERROR, f'error response {res.status} {__url}', type=NETWORK)
                         return None
         except Exception as e:
@@ -163,7 +158,7 @@ class Fetcher():
             with open(jsonpath, 'rt', encoding='utf-8') as f:
                 self.reporter.report(INFO, f'reading {jsonpath}', type=FILEIO)
                 obj = json.load(f)
-            if 'cache_version' in obj and obj['cache_version'] == CACHE_VERSION:
+            if 'cache_version' in obj and obj['cache_version'] == self.CACHE_VERSION:
 
                 # json内にhtml置くのやめる
                 if 'body' in obj:
@@ -189,7 +184,7 @@ class Fetcher():
         filename = urllib.parse.quote(__url, '')
         htmlpath = os.path.join(self.cachedir, filename+'.html')
         jsonpath = os.path.join(self.cachedir, filename+'.json')
-        __obj['cache_version'] = CACHE_VERSION
+        __obj['cache_version'] = self.CACHE_VERSION
         with open(jsonpath, 'wt', encoding='utf-8') as f:
             self.reporter.report(INFO, f'writing {jsonpath}', type=FILEIO,)
             json.dump(__obj, f)
@@ -202,32 +197,52 @@ class Fetcher():
         return html and bs4.BeautifulSoup(html, 'lxml')
 
 
-def name_keep(params, **args):
-    parsed = urllib.parse.urlparse(params['url'])
-    filename = os.path.split(parsed.path)[1]
-    name, ext = os.path.splitext(filename)
-    if args['namelen'] > 0:
-        name = name[:args['namelen']]
-    return name + (ext or params['ext'])
+class Namer():
+    def __init__(self, namelen: int) -> None:
+        self.namelen = namelen
+
+    def getname(self, url: str = '', ext: str = '', number: int = 0) -> str:
+        pass
 
 
-def name_number(params, **args):
-    namelen = args['namelen'] if args['namelen'] > 0 else 5
-    return str(params['number']).zfill(namelen) + params['ext']
+class KeepedNamer(Namer):
+    def __init__(self, namelen) -> None:
+        super(KeepedNamer, self).__init__(namelen)
+
+    def getname(self, url: str = '', ext: str = '', number: int = 0):
+        parsed = urllib.parse.urlparse(url)
+        filename = os.path.split(parsed.path)[1]
+        name, _ext = os.path.splitext(filename)
+        if self.namelen > 0:
+            name = name[:self.namelen]
+        return name + (_ext or ext)
 
 
-def name_random(params, **args):
-    namelen = args['namelen'] if args['namelen'] > 0 else 5
-    rand = [random.choice(string.ascii_letters + string.digits) for i in range(namelen)]
-    return ''.join(rand) + params['ext']
+class NumberddNamer(Namer):
+    def __init__(self, namelen) -> None:
+        super(NumberddNamer, self).__init__(namelen)
+
+    def getname(self, url: str = '', ext: str = '', number: int = 0):
+        namelen = self.namelen if self.namelen > 0 else 5
+        return str(number).zfill(namelen) + ext
 
 
-def select_name(src):
+class RandomNamer(Namer):
+    def __init__(self, namelen) -> None:
+        super(RandomNamer, self).__init__(namelen)
+
+    def getname(self, url: str = '', ext: str = '', number: int = 0):
+        namelen = self.namelen if self.namelen > 0 else 5
+        rand = [random.choice(string.ascii_letters + string.digits) for i in range(namelen)]
+        return ''.join(rand) + ext
+
+
+def select_namer(src: str, namelen: int) -> Namer:
     return {
-        'keep': name_keep,
-        'number': name_number,
-        'random': name_random,
-    }[src]
+        'keep': KeepedNamer,
+        'number': NumberddNamer,
+        'random': RandomNamer,
+    }[src](namelen)
 
 
 rmap = {}
@@ -268,7 +283,7 @@ async def parallel_for(generator, async_fn, **args):
 
         # semaphoreで調整しながら並列化する
         async for page in generator:
-            async with concurrent_semaphore:
+            async with args['semaphore']:
                 pending.append(asyncio.ensure_future(async_fn(page, **args)))
 
         # 並列化したやつを非同期的に待ち直列化する
@@ -293,12 +308,12 @@ def single_selector_collector(__url, __selector, __attr='src', fetcher: Fetcher 
     return get_imgs
 
 
-async def single_one_selector(params, fetcher: Fetcher = None):
+async def single_one_selector(params, fetcher: Fetcher = None, **args):
     doc = await fetcher.fetch_doc(params['url'])
     return doc.select_one(params['selector'])[params['attr']]
 
 
-async def multiple_selector(params, fetcher: Fetcher = None):
+async def multiple_selector(params, fetcher: Fetcher = None, **args):
     doc = await fetcher.fetch_doc(params['url'])
     return list(map(lambda e: e[params['attr']], doc.select(params['selector'])))
 

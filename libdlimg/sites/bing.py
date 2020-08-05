@@ -1,3 +1,4 @@
+from asyncio.locks import Semaphore
 from libdlimg.lib import Fetcher
 from libdlimg.waiter import Waiter
 from logging import FATAL
@@ -15,11 +16,15 @@ class Collector():
     def __init__(self,
                  reporter: Reporter = None,
                  waiter: Waiter = None,
-                 fetcher: Fetcher = None):
+                 fetcher: Fetcher = None,
+                 **others):
         self.reporter = reporter
         self.waiter = waiter
         self.fetcher = fetcher
         self.title = 'bing'
+
+    async def gettitle(self, url: str):
+        return self.title
 
     async def collector(self, **args):
         async def links_fn(page_num, **args):
@@ -38,5 +43,4 @@ class Collector():
                 exit(1)
 
         async for img in lib.paged_collector(links_fn=links_fn, ** args):
-            async with lib.concurrent_semaphore:
-                yield img
+            yield img

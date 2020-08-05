@@ -1,3 +1,5 @@
+from asyncio.locks import Semaphore
+from libdlimg.lib import Fetcher
 from libdlimg.waiter import Waiter
 from libdlimg.error import Reporter
 import bs4
@@ -5,20 +7,29 @@ import re
 from .. import lib
 import urllib.parse
 
-# site = 'wear'
+site = 'wear'
 match = re.compile('https?://wear.jp/.*')
 
 
 class Collector():
-    def __init__(self, reporter: Reporter = None, waiter: Waiter = None):
+    def __init__(self,
+                 reporter: Reporter = None,
+                 waiter: Waiter = None,
+                 fetcher: Fetcher = None,
+                 semaphore: Semaphore = None):
         self.reporter = reporter
         self.waiter = waiter
+        self.fetcher = fetcher
+        self.semaphore = semaphore
         self.title = 'wear'
 
-    async def user_links_fn(page_num, **args):
+    async def gettitle(self, url: str):
+        return self.title
+
+    async def user_links_fn(self, page_num, **args):
         url = args['url'] + f'?pageno={page_num}'
         ret = {}
-        doc = await lib.fetch_doc(url, ret, **args)
+        doc = await self.fetcher.fetch_doc(url, ret)
         # 終了条件
         if page_num >= 2 and str(ret['realurl']).count('?pageno') == 0:
             return []
@@ -60,14 +71,14 @@ class Collector():
     async def user_collector(self, **args):
         async for user in lib.paged_collector(links_fn=self.user_links_fn, ** args):
             async for img in lib.paged_collector(links_fn=self.gallery_links_fn, ps=1, pe=-1, params=user, ** args):
-                async with lib.concurrent_semaphore:
+                async with self.semaphore:
                     yield img
 
     async def gallery_links_fn(self, page_num, params=None, **args):
         _url = params['url'] if params and 'url' in params else args['url']
         url = _url + f'?pageno={page_num}'
         ret = {}
-        doc = await lib.fetch_doc(url, ret, **args)
+        doc = await self.fetcher.fetch_doc(url, ret)
         # 終了条件
         if page_num >= 2 and str(ret['realurl']).count('?pageno') == 0:
             return []
@@ -104,7 +115,7 @@ class Collector():
 
     async def gallery_collector(self, **args):
         async for img in lib.paged_collector(links_fn=self.gallery_links_fn, ** args):
-            async with lib.concurrent_semaphore:
+            async with self.semaphore:
                 yield img
 
     async def collector(self, **args):
