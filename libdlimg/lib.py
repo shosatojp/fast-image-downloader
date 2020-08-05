@@ -120,6 +120,8 @@ class Fetcher():
                  usecache: bool = True,
                  useragent: str = '',
                  filelister: FileList = None,
+                 selenium: bool = False,
+                 profile: str = '',
                  ) -> None:
         self.session = ClientSession()
         self.semaphore = semaphore
@@ -130,6 +132,8 @@ class Fetcher():
         self.usecache = usecache
         self.useragent = useragent
         self.filelister = filelister
+        self.selenium = selenium
+        self.profile = profile
         self.CACHE_VERSION = 1
 
     async def close(self):
@@ -146,8 +150,8 @@ class Fetcher():
         if self.waiter:
             await self.waiter.wait(__url)
 
-        # if args['threading']:
-        #     return await fetch_by_browser2(__url, **args)
+        if self.selenium:
+            return await self.fetch_by_browser(__url)
 
         headers = {}
         if self.useragent:
@@ -231,6 +235,40 @@ class Fetcher():
         html = await self.fetch(__url, ret)
         return html and bs4.BeautifulSoup(html, 'lxml')
 
+    async def fetch_by_browser(self, __url: str):
+        from selenium.webdriver.firefox.options import Options
+        from selenium import webdriver
+
+        def get():
+            opt = Options()
+            opt.add_argument("--headless")
+            profile = webdriver.FirefoxProfile(self.profile)
+            print(self.profile, profile.profile_dir)
+            # opt.add_argument('--profile')
+            # opt.add_argument(self.profile)
+            driver = webdriver.Firefox(profile, options=opt)
+
+            print(driver.profile.path)
+            driver.get(__url)
+
+            while True:
+                state = driver.execute_script('return document.readyState')
+                if state == 'complete':
+                    break
+                time.sleep(0.1)
+
+            html = driver.find_element_by_tag_name('html').get_attribute('innerHTML')
+            # driver.quit()
+            # driver.binary.kill()
+            if self.cache:
+                self.save_fetched(__url, html, {
+                    'realurl': str(__url)  # リダイレクト後のURL取れる？
+                })
+            return html
+
+        self.reporter.report(INFO, f'fetched {__url}', type=NETWORK)
+        return get()
+
 
 class Namer():
     def __init__(self, namelen: int) -> None:
@@ -312,12 +350,18 @@ async def parallel_for(generator, async_fn, parallel: int = 10, **args):
             return result[0]
 
         tpe = ThreadPoolExecutor(args['limit'])
-        fs = []
+        pending = set()
         async for page in generator:
-            fs.append(tpe.submit(run_in_new_loop, async_fn, page, **args))
-
-        for f in fs:
-            yield f.result()
+            if len(pending) <= parallel:
+                pending.add(tpe.submit(run_in_new_loop, async_fn, page, **args))
+            else:
+                _pending = []
+                for f in pending:
+                    if f.done():
+                        yield f.result()
+                    else:
+                        _pending.append(f)
+                pending = _pending
     else:
         pending = set()
         async for page in generator:

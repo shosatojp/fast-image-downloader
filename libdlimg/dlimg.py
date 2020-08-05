@@ -20,6 +20,7 @@ parser = argparse.ArgumentParser('fast image downloader')
 parser.add_argument('url', action='store', nargs='?', help='URL')
 parser.add_argument('--archive', '-a', action='store_true', default=False, help='archive as zip')
 parser.add_argument('--selenium', '-d', action='store_true', default=False, help='selenium')
+parser.add_argument('--profile', '-P', type=str, default='', help='selenium profile directory')
 parser.add_argument('--name', '-n', choices=['keep', 'number', 'random'], default='number', help='how to name the files')
 parser.add_argument('--startnum', '-sn', type=int, default=0, help='image number starts from this number when select `number` as name')
 parser.add_argument('--namelen', '-nl', type=int, default=-1, help='max length of filename')
@@ -78,6 +79,8 @@ fetcher = Fetcher(
     reporter=reporter,
     useragent=args.useragent,
     filelister=filelist,
+    selenium=args.selenium,
+    profile=args.profile,
 )
 
 collector = libdlimg.sites.collector_selector(**args_dict)(
