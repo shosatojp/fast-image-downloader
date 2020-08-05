@@ -65,7 +65,7 @@ waiter = Waiter(**args_dict)
 reporter = Reporter(args.loglevel, args.handler, args.handlelevel)
 semaphore = asyncio.Semaphore(args.limit)
 filelist = FileList(
-    os.path.join(args.basedir, args.outdir, args.filelist),
+    args.filelist and os.path.join(args.basedir, args.outdir, args.filelist),
     reporter=reporter
 )
 fetcher = Fetcher(
