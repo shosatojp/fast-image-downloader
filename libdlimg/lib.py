@@ -70,7 +70,7 @@ class ImageDownloader():
 
             if os.path.exists(tmp_path):
                 shutil.move(tmp_path, __path)
-                self.filelister.add(__path)
+                self.filelister.add(filename)
 
             # save mapdata
             self.mapper.write_map(__url, filename)
@@ -155,13 +155,13 @@ class Fetcher():
         html = None
 
         if os.path.exists(htmlpath):
-            self.filelister.add(htmlpath)
+            self.filelister.add(filename+'.html')
             with open(htmlpath, 'rt', encoding='utf-8') as f:
                 self.reporter.report(INFO, f'reading {htmlpath}', type=FILEIO)
                 html = f.read()
 
         if os.path.exists(jsonpath):
-            self.filelister.add(jsonpath)
+            self.filelister.add(filename+'.json')
             with open(jsonpath, 'rt', encoding='utf-8') as f:
                 self.reporter.report(INFO, f'reading {jsonpath}', type=FILEIO)
                 obj = json.load(f)
@@ -171,7 +171,7 @@ class Fetcher():
                 if 'body' in obj:
                     html = obj['body']
                     with open(htmlpath, 'wt', encoding='utf-8') as f:
-                        self.filelister.add(htmlpath)
+                        self.filelister.add(filename+'.html')
                         self.reporter.report(INFO, f'writing {htmlpath}', type=FILEIO)
                         f.write(obj['body'])
                     del obj['body']
@@ -194,11 +194,11 @@ class Fetcher():
         jsonpath = os.path.join(self.cachedir, filename+'.json')
         __obj['cache_version'] = self.CACHE_VERSION
         with open(jsonpath, 'wt', encoding='utf-8') as f:
-            self.filelister.add(jsonpath)
+            self.filelister.add(filename+'.json')
             self.reporter.report(INFO, f'writing {jsonpath}', type=FILEIO,)
             json.dump(__obj, f)
         with open(htmlpath, 'wt', encoding='utf-8') as f:
-            self.filelister.add(htmlpath)
+            self.filelister.add(filename+'.html')
             self.reporter.report(INFO, f'writing {htmlpath}', type=FILEIO)
             f.write(__body)
 
