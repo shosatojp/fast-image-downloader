@@ -23,7 +23,31 @@ import mimetypes
 import aiohttp.client_exceptions
 import traceback
 import sys
-from libdlimg.error import ERROR, INFO, NETWORK, PROGRESS, FILEIO, Reporter
+from libdlimg.error import ERROR, INFO, NETWORK, PROGRESS, FILEIO, Reporter, WARN
+
+import subprocess
+
+
+class CommandDownloader():
+    def __init__(self,
+                 reporter: Reporter = None,
+                 mapper: Mapper = None,
+                 filelister: FileList = None,
+                 command: str = '',
+                 **others):
+        self.reporter = reporter
+        self.mapper = mapper
+        self.filelister = filelister
+        self.command = command
+
+    async def download_img(self, __url, __path, **args):
+        process = subprocess.run([self.command, __url, __path])
+        if not process.returncode:
+            self.reporter.report(INFO, f'download with command {__url} -> {__path}', type=NETWORK)
+            self.mapper.write_map(__url, __path)
+            self.filelister.add(os.path.basename(__path))
+        else:
+            self.reporter.report(ERROR, f'download command failed {__url} -> {__path}', type=NETWORK)
 
 
 class ImageDownloader():
@@ -32,7 +56,8 @@ class ImageDownloader():
                  mapper: Mapper = None,
                  waiter: Waiter = None,
                  semaphore: Semaphore = None,
-                 filelister: FileList = None):
+                 filelister: FileList = None,
+                 **others):
         self.reporter = reporter
         self.mapper = mapper
         self.waiter = waiter

@@ -45,6 +45,7 @@ parser.add_argument('--verify', '-V', default=False, action='store_true', help='
 parser.add_argument('--handler', '-H', default='', type=str, help='error handler executable')
 parser.add_argument('--handlelevel', '-HL', default=3, type=int, help='log level')
 parser.add_argument('--loglevel', '-LL', default=2, type=int, help='log level')
+parser.add_argument('--command', '-C', default='', type=str, help='download command')
 
 args = parser.parse_args()
 

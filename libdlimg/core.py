@@ -6,7 +6,7 @@ from libdlimg.waiter import Waiter
 from libdlimg.sites.wear import Collector
 from libdlimg.list import FileList, Mapper
 from libdlimg.error import FATAL, INFO, FILEIO, PROGRESS, Reporter
-from libdlimg.lib import Fetcher, ImageDownloader, normarize_path, select_namer
+from libdlimg.lib import CommandDownloader, Fetcher, ImageDownloader, normarize_path, select_namer
 import sys
 import aiohttp
 import urllib
@@ -50,11 +50,22 @@ async def archive_downloader(
         os.makedirs(bin_path, exist_ok=True)
 
         mapper = Mapper(bin_path, reporter=reporter)
-        image_downloader = ImageDownloader(reporter=reporter,
-                                           mapper=mapper,
-                                           waiter=waiter,
-                                           semaphore=semaphore,
-                                           filelister=filelister)
+
+        if args['command']:
+            image_downloader = CommandDownloader(
+                reporter=reporter,
+                mapper=mapper,
+                filelister=filelister,
+                command=args['command'],
+            )
+        else:
+            image_downloader = ImageDownloader(
+                reporter=reporter,
+                mapper=mapper,
+                waiter=waiter,
+                semaphore=semaphore,
+                filelister=filelister
+            )
 
         # sigint handler
         def on_sigint(n, f):
