@@ -4,25 +4,26 @@ import json
 
 
 class FileList():
-    def __init__(self, listfile: str, max=100, reporter: Reporter = None):
+    def __init__(self, listfile: str, max=10, reporter: Reporter = None):
         self.listfile = listfile
         self.list = []
         self.max = max
         self.reporter = reporter
-        if self.listfile:
+
+        if self.listfile and os.path.exists(self.listfile):
             with open(self.listfile, 'wt', encoding='utf-8') as f:
                 f.write('')
 
     def add(self, path: str):
         self.list.append(path)
 
-        if len(path) == self.max:
+        if len(self.list) == self.max:
             self.write()
             self.list = []
 
     def write(self):
         if self.listfile:
-            with open(self.listfile, 'wt', encoding='utf-8') as f:
+            with open(self.listfile, 'at', encoding='utf-8') as f:
                 self.reporter.report(INFO, f'writing {self.listfile}', type=FILEIO)
                 f.write('\n'.join(self.list)+'\n')
 

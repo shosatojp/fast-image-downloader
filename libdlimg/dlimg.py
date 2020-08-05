@@ -64,7 +64,10 @@ waiter = Waiter(**args_dict)
 
 reporter = Reporter(args.loglevel, args.handler, args.handlelevel)
 semaphore = asyncio.Semaphore(args.limit)
-filelist = FileList(args.filelist, reporter=reporter)
+filelist = FileList(
+    os.path.join(args.basedir, args.outdir, args.filelist),
+    reporter=reporter
+)
 fetcher = Fetcher(
     semaphore=semaphore,
     waiter=waiter,
@@ -80,7 +83,6 @@ collector = libdlimg.sites.collector_selector(**args_dict)(
     reporter=reporter,
     waiter=waiter,
     fetcher=fetcher,
-    semaphore=semaphore,
 )
 
 reporter.report(WARN, f'start crawling: `{" ".join(sys.argv)}`')
