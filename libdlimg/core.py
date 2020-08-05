@@ -121,6 +121,7 @@ async def archive_downloader(
 
         downloaded = await asyncio.gather(*tasks)
         mapper.save_map()
+        filelister.write()
 
         total_size = 0
         for e in [e for e in downloaded if e]:

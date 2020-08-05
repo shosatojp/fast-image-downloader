@@ -4,7 +4,7 @@ import json
 
 
 class FileList():
-    def __init__(self, listfile: str, max=10, reporter: Reporter = None):
+    def __init__(self, listfile: str, max=100, reporter: Reporter = None):
         self.listfile = listfile
         self.list = []
         self.max = max
