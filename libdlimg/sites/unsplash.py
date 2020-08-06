@@ -44,6 +44,6 @@ class Collector():
             data = json.loads(src)
             return list(map(lambda e: e['urls'][qualities[args['quality']]], data['results']))
 
-        async for img in lib.paged_collector(links_fn=links_fn, ** args):
+        async for img in lib.paged_collector(links_fn, args['pagestart'], args['pageend'], ** args):
             yield img
             await asyncio.sleep(0.1)
