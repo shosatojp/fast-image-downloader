@@ -298,7 +298,7 @@ class KeepedNamer(Namer):
         name, _ext = self.getnameext(url)
         if self.namelen > 0:
             name = name[:self.namelen]
-        return self.get_unique_prefix() + '.' + name + (_ext or ext)
+        return name + (_ext or ext)
 
 
 class NumberddNamer(Namer):
@@ -322,11 +322,21 @@ class RandomNamer(Namer):
         return self.get_unique_prefix() + '.' + ''.join(rand) + (_ext or ext)
 
 
+class UrlNamer(Namer):
+    def __init__(self, namelen) -> None:
+        super(UrlNamer, self).__init__(namelen)
+
+    def getname(self, url: str = '', ext: str = '', number: int = 0):
+        name, _ext = os.path.splitext(url)
+        return urllib.parse.quote(name, '') + (_ext or ext)
+
+
 def select_namer(src: str, namelen: int) -> Namer:
     return {
         'keep': KeepedNamer,
         'number': NumberddNamer,
         'random': RandomNamer,
+        'url': UrlNamer,
     }[src](namelen)
 
 
