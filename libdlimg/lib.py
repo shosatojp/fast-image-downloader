@@ -273,6 +273,7 @@ class Fetcher():
 class Namer():
     def __init__(self, namelen: int) -> None:
         self.namelen = namelen
+        self._count = 0
 
     def getname(self, url: str = '', ext: str = '', number: int = 0) -> str:
         pass
@@ -281,6 +282,12 @@ class Namer():
         parsed = urllib.parse.urlparse(url)
         filename = os.path.split(parsed.path)[1]
         return os.path.splitext(filename)
+
+    def get_unique_prefix(self):
+        self._count += 1
+        return str(int(time.time() * 1000)) + '_'\
+            + str(self._count).zfill(3) + '_'\
+            + ''.join([random.choice(string.ascii_letters + string.digits) for _ in range(3)])
 
 
 class KeepedNamer(Namer):
@@ -291,7 +298,7 @@ class KeepedNamer(Namer):
         name, _ext = self.getnameext(url)
         if self.namelen > 0:
             name = name[:self.namelen]
-        return name + (_ext or ext)
+        return self.get_unique_prefix() + '.' + name + (_ext or ext)
 
 
 class NumberddNamer(Namer):
@@ -312,7 +319,7 @@ class RandomNamer(Namer):
         name, _ext = self.getnameext(url)
         namelen = self.namelen if self.namelen > 0 else 5
         rand = [random.choice(string.ascii_letters + string.digits) for i in range(namelen)]
-        return ''.join(rand) + (_ext or ext)
+        return self.get_unique_prefix() + '.' + ''.join(rand) + (_ext or ext)
 
 
 def select_namer(src: str, namelen: int) -> Namer:
