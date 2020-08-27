@@ -111,7 +111,7 @@ async def archive_downloader(
                     mapper.write_map(imgurl, exists_file)
 
             # ファイルが存在しない場合は非同期ダウンロード
-            if not exists_file and not noimage:
+            if not exists_file:
                 async def runner(imgurl, file_path):
                     ret: dict = await image_downloader.download_img(imgurl, file_path)
                     params['progress'] += 1
@@ -120,8 +120,9 @@ async def archive_downloader(
                         ret['size'] = os.stat(ret['path']).st_size
                     return ret
 
-                task = asyncio.ensure_future(runner(imgurl, file_path))
-                tasks.append(task)
+                if not noimage:
+                    task = asyncio.ensure_future(runner(imgurl, file_path))
+                    tasks.append(task)
             else:
                 filelister.add(exists_file)
                 reporter.report(INFO, f'skip {imgurl} == {exists_file}')
