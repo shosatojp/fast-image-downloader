@@ -37,6 +37,7 @@ async def archive_downloader(
         archive=False,
         count: int = -1,
         nodata: bool = False,
+        noimage: bool = False,
         startnum=0,
         filelister: FileList = None,
         **args):
@@ -110,7 +111,7 @@ async def archive_downloader(
                     mapper.write_map(imgurl, exists_file)
 
             # ファイルが存在しない場合は非同期ダウンロード
-            if not exists_file:
+            if not exists_file and not noimage:
                 async def runner(imgurl, file_path):
                     ret: dict = await image_downloader.download_img(imgurl, file_path)
                     params['progress'] += 1

@@ -40,6 +40,7 @@ parser.add_argument('--wait', '-w', default='', nargs='+', type=str, help='inter
 parser.add_argument('--waitlist', '-wl', default='', type=str, help='interval list for wait option. prior than `--wait`')
 parser.add_argument('--nightshift', '-ns', default=1, type=int, help='night shift')
 parser.add_argument('--nodata', default=False, action='store_true', help='')
+parser.add_argument('--noimage', default=False, action='store_true', help='')
 parser.add_argument('--savefetched', '-S', default=False, action='store_true', help='cache fetched documents (html, json, ...)')
 parser.add_argument('--usecache', '-U', default=False, action='store_true', help='use cached documents to reduce requests')
 parser.add_argument('--verify', '-V', default=False, action='store_true', help='verify map')
