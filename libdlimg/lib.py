@@ -219,17 +219,24 @@ class Fetcher():
 
     def save_fetched(self, __url: str, __body: str, __obj):
         filename = urllib.parse.quote(__url, '')
+        tmpname = '.' + filename
         htmlpath = os.path.join(self.cachedir, filename+'.html')
         jsonpath = os.path.join(self.cachedir, filename+'.json')
+        tmphtmlpath = os.path.join(self.cachedir, tmpname+'.html')
+        tmpjsonpath = os.path.join(self.cachedir, tmpname+'.json')
         __obj['cache_version'] = self.CACHE_VERSION
-        with open(jsonpath, 'wt', encoding='utf-8') as f:
+
+        with open(tmpjsonpath, 'wt', encoding='utf-8') as f:
             self.filelister.add(filename+'.json')
             self.reporter.report(INFO, f'writing {jsonpath}', type=FILEIO,)
             json.dump(__obj, f)
-        with open(htmlpath, 'wt', encoding='utf-8') as f:
+        shutil.move(tmpjsonpath, jsonpath)
+
+        with open(tmphtmlpath, 'wt', encoding='utf-8') as f:
             self.filelister.add(filename+'.html')
             self.reporter.report(INFO, f'writing {htmlpath}', type=FILEIO)
             f.write(__body)
+        shutil.move(tmphtmlpath, htmlpath)
 
     async def fetch_doc(self, __url: str, ret={}):
         html = await self.fetch(__url, ret)
