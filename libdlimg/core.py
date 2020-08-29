@@ -97,7 +97,7 @@ async def archive_downloader(
 
             # データあり
             if not nodata and data:
-                json_path = os.path.join(bin_path, basename + '.json')
+                json_path = os.path.join(bin_path, filename + '.json')
                 filelister.add(basename+'.json')
                 reporter.report(INFO, f'writing data -> {json_path}', type=FILEIO)
                 with open(json_path, 'wt', encoding='utf-8') as fp:
