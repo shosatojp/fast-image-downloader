@@ -105,6 +105,8 @@ class Collector():
                 if elem_height:
                     data['height'] = elem_height.text.strip()
 
+                data['url'] = link
+
                 links.append({
                     'url': link,
                     'data': data,
