@@ -6,7 +6,7 @@ from libdlimg.waiter import Waiter
 from libdlimg.sites.wear import Collector
 from libdlimg.list import FileList, Mapper
 from libdlimg.error import FATAL, INFO, FILEIO, PROGRESS, Reporter
-from libdlimg.lib import CommandDownloader, Fetcher, ImageDownloader, normarize_path, select_namer
+from libdlimg.lib import CommandDownloader, Fetcher, ImageDownloader, normarize_path, register_rmap, select_namer
 import sys
 import aiohttp
 import urllib
@@ -39,7 +39,6 @@ async def archive_downloader(
         nodata: bool = False,
         noimage: bool = False,
         startnum=0,
-        filelister: FileList = None,
         **args):
     try:
         start = time.time()
@@ -50,29 +49,21 @@ async def archive_downloader(
         bin_path = os.path.join(base_directory, out_directory or normarize_path(title))
         os.makedirs(bin_path, exist_ok=True)
 
-        mapper = Mapper(bin_path, reporter=reporter)
-
         if args['command']:
             image_downloader = CommandDownloader(
                 reporter=reporter,
-                mapper=mapper,
-                filelister=filelister,
                 command=args['command'],
             )
         else:
             image_downloader = ImageDownloader(
                 reporter=reporter,
-                mapper=mapper,
                 waiter=waiter,
                 semaphore=semaphore,
-                filelister=filelister
             )
 
         # sigint handler
         def on_sigint(n, f):
             reporter.report(FATAL, 'SIGINT')
-            mapper.save_map()
-            filelister.write()
             exit(1)
 
         signal.signal(signal.SIGINT, on_sigint)
@@ -98,17 +89,12 @@ async def archive_downloader(
             # データあり
             if not nodata and data:
                 json_path = os.path.join(bin_path, filename + '.json')
-                filelister.add(basename+'.json')
                 reporter.report(INFO, f'writing data -> {json_path}', type=FILEIO)
                 with open(json_path, 'wt', encoding='utf-8') as fp:
                     json.dump(data, fp)
 
-            # map.jsonの整合性確認
-            exists_file = mapper.read_map(imgurl)
-            if not exists_file:
-                exists_file = lib.exists_prefix(bin_path, basename)
-                if exists_file:
-                    mapper.write_map(imgurl, exists_file)
+            # ファイル存在確認
+            exists_file = lib.exists_prefix(bin_path, basename)
 
             # ファイルが存在しない場合は非同期ダウンロード
             if not exists_file:
@@ -117,6 +103,7 @@ async def archive_downloader(
                     params['progress'] += 1
                     show_progress(reporter, params['progress'], len(tasks))
                     if ret:
+                        register_rmap(ret['path'])
                         ret['size'] = os.stat(ret['path']).st_size
                     return ret
 
@@ -124,7 +111,6 @@ async def archive_downloader(
                     task = asyncio.ensure_future(runner(imgurl, file_path))
                     tasks.append(task)
             else:
-                filelister.add(exists_file)
                 reporter.report(INFO, f'skip {imgurl} == {exists_file}')
 
             if count != -1 and i+1 >= count:
@@ -133,8 +119,6 @@ async def archive_downloader(
             i += 1
 
         downloaded = await asyncio.gather(*tasks)
-        mapper.save_map()
-        filelister.write()
 
         total_size = 0
         for e in [e for e in downloaded if e]:

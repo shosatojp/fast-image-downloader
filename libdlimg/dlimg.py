@@ -67,10 +67,6 @@ waiter = Waiter(**args_dict)
 
 reporter = Reporter(args.loglevel, args.handler, args.handlelevel)
 semaphore = asyncio.Semaphore(args.limit)
-filelist = FileList(
-    args.filelist and os.path.join(args.basedir, args.outdir, args.filelist),
-    reporter=reporter
-)
 fetcher = Fetcher(
     semaphore=semaphore,
     waiter=waiter,
@@ -79,7 +75,6 @@ fetcher = Fetcher(
     cachedir=os.path.join(args.basedir, args.outdir),
     reporter=reporter,
     useragent=args.useragent,
-    filelister=filelist,
     selenium=args.selenium,
     profile=args.profile,
 )
@@ -98,7 +93,6 @@ async def main():
     await libdlimg.core.archive_downloader(collector, args.basedir, args.outdir, semaphore,
                                            reporter=reporter,
                                            waiter=waiter,
-                                           filelister=filelist,
                                            ** args_dict)
     await fetcher.close()
 

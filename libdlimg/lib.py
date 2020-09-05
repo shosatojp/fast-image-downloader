@@ -1,11 +1,10 @@
 from asyncio.locks import Semaphore
+from importlib.resources import path
 import json
 from random import Random
 
 from aiohttp.client import ClientSession
-from soupsieve.css_parser import PAT_PSEUDO_CONTAINS
 from libdlimg.waiter import Waiter
-from libdlimg.list import FileList, Mapper
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 import time
@@ -32,21 +31,15 @@ import subprocess
 class CommandDownloader():
     def __init__(self,
                  reporter: Reporter = None,
-                 mapper: Mapper = None,
-                 filelister: FileList = None,
                  command: str = '',
                  **others):
         self.reporter = reporter
-        self.mapper = mapper
-        self.filelister = filelister
         self.command = command
 
     async def download_img(self, __url, __path, **args):
         process = subprocess.run([self.command, __url, __path])
         if not process.returncode:
             self.reporter.report(INFO, f'download with command {__url} -> {__path}', type=NETWORK)
-            self.mapper.write_map(__url, __path)
-            self.filelister.add(os.path.basename(__path))
         else:
             self.reporter.report(ERROR, f'download command failed {__url} -> {__path}', type=NETWORK)
 
@@ -54,16 +47,12 @@ class CommandDownloader():
 class ImageDownloader():
     def __init__(self,
                  reporter: Reporter = None,
-                 mapper: Mapper = None,
                  waiter: Waiter = None,
                  semaphore: Semaphore = None,
-                 filelister: FileList = None,
                  **others):
         self.reporter = reporter
-        self.mapper = mapper
         self.waiter = waiter
         self.semaphore = semaphore
-        self.filelister = filelister
 
     async def download_img(self, __url, __path, **args):
         # waiter
@@ -96,10 +85,6 @@ class ImageDownloader():
 
             if os.path.exists(tmp_path):
                 shutil.move(tmp_path, __path)
-                self.filelister.add(filename)
-
-            # save mapdata
-            self.mapper.write_map(__url, filename)
 
             return {
                 'path': __path,
@@ -119,7 +104,6 @@ class Fetcher():
                  cache: bool = True,
                  usecache: bool = True,
                  useragent: str = '',
-                 filelister: FileList = None,
                  selenium: bool = False,
                  profile: str = '',
                  ) -> None:
@@ -131,7 +115,6 @@ class Fetcher():
         self.cache = cache
         self.usecache = usecache
         self.useragent = useragent
-        self.filelister = filelister
         self.selenium = selenium
         self.profile = profile
         self.CACHE_VERSION = 1
@@ -184,33 +167,16 @@ class Fetcher():
         html = None
 
         if os.path.exists(htmlpath):
-            self.filelister.add(filename+'.html')
             with open(htmlpath, 'rt', encoding='utf-8') as f:
                 self.reporter.report(INFO, f'reading {htmlpath}', type=FILEIO)
                 html = f.read()
 
         if os.path.exists(jsonpath):
-            self.filelister.add(filename+'.json')
             with open(jsonpath, 'rt', encoding='utf-8') as f:
                 self.reporter.report(INFO, f'reading {jsonpath}', type=FILEIO)
                 obj = json.load(f)
             if 'cache_version' in obj and obj['cache_version'] == self.CACHE_VERSION:
-
-                # json内にhtml置くのやめる
-                if 'body' in obj:
-                    html = obj['body']
-                    with open(htmlpath, 'wt', encoding='utf-8') as f:
-                        self.filelister.add(filename+'.html')
-                        self.reporter.report(INFO, f'writing {htmlpath}', type=FILEIO)
-                        f.write(obj['body'])
-                    del obj['body']
-                    with open(jsonpath, 'wt', encoding='utf-8') as f:
-                        self.reporter.report(INFO, f'writing {jsonpath}', type=FILEIO)
-                        json.dump(obj, f)
-                ###############################
-
                 obj['body'] = html
-
                 return obj
             else:
                 return None
@@ -227,13 +193,11 @@ class Fetcher():
         __obj['cache_version'] = self.CACHE_VERSION
 
         with open(tmpjsonpath, 'wt', encoding='utf-8') as f:
-            self.filelister.add(filename+'.json')
             self.reporter.report(INFO, f'writing {jsonpath}', type=FILEIO,)
             json.dump(__obj, f)
         shutil.move(tmpjsonpath, jsonpath)
 
         with open(tmphtmlpath, 'wt', encoding='utf-8') as f:
-            self.filelister.add(filename+'.html')
             self.reporter.report(INFO, f'writing {htmlpath}', type=FILEIO)
             f.write(__body)
         shutil.move(tmphtmlpath, htmlpath)
@@ -363,6 +327,12 @@ def exists_prefix(rootdir, prefix):
         return prefix + rmap[prefix]
     else:
         return False
+
+
+def register_rmap(path):
+    _, filename = os.path.split(path)
+    basename, ext = os.path.splitext(filename)
+    rmap[basename] = ext
 
 
 async def parallel_for(generator, async_fn, parallel: int = 10, **args):
