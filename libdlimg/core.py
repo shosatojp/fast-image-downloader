@@ -1,25 +1,16 @@
-import argparse
 from asyncio.locks import Semaphore
-
-from aiohttp.client import ClientSession
 from libdlimg.waiter import Waiter
 from libdlimg.sites.wear import Collector
-from libdlimg.list import FileList, Mapper
 from libdlimg.error import FATAL, INFO, FILEIO, PROGRESS, Reporter
-from libdlimg.lib import CommandDownloader, Fetcher, ImageDownloader, normarize_path, register_rmap, select_namer
-import sys
-import aiohttp
-import urllib
+from libdlimg.lib import CommandDownloader, ImageDownloader, normarize_path, select_namer
 import shutil
 import asyncio
-import bs4
 import os
 import re
 from . import lib
 from . import sites
 import time
 import json
-import stat
 import signal
 
 
@@ -82,8 +73,7 @@ async def archive_downloader(
                 imgurl = img
                 data = None
 
-            filename = namer.getname(url=imgurl, ext='', number=i)
-            basename, _ = os.path.splitext(filename)
+            filename = namer.getname(url=imgurl, number=i)
             file_path = os.path.join(bin_path, filename)
 
             # データあり
@@ -93,17 +83,13 @@ async def archive_downloader(
                 with open(json_path, 'wt', encoding='utf-8') as fp:
                     json.dump(data, fp)
 
-            # ファイル存在確認
-            exists_file = lib.exists_prefix(bin_path, basename)
-
             # ファイルが存在しない場合は非同期ダウンロード
-            if not exists_file:
+            if not os.path.exists(file_path):
                 async def runner(imgurl, file_path):
                     ret: dict = await image_downloader.download_img(imgurl, file_path)
                     params['progress'] += 1
                     show_progress(reporter, params['progress'], len(tasks))
                     if ret:
-                        register_rmap(ret['path'])
                         ret['size'] = os.stat(ret['path']).st_size
                     return ret
 
@@ -111,7 +97,7 @@ async def archive_downloader(
                     task = asyncio.ensure_future(runner(imgurl, file_path))
                     tasks.append(task)
             else:
-                reporter.report(INFO, f'skip {imgurl} == {exists_file}')
+                reporter.report(INFO, f'skip {imgurl} == {file_path}')
 
             if count != -1 and i+1 >= count:
                 break

@@ -49,10 +49,12 @@ class ImageDownloader():
                  reporter: Reporter = None,
                  waiter: Waiter = None,
                  semaphore: Semaphore = None,
-                 **others):
+                 useragent: str = '',
+                 ** others):
         self.reporter = reporter
         self.waiter = waiter
         self.semaphore = semaphore
+        self.useragent = useragent
 
     async def download_img(self, __url, __path, **args):
         # waiter
@@ -62,12 +64,8 @@ class ImageDownloader():
         try:
             async with self.semaphore:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(__url) as res:
+                    async with session.get(__url, headers={'user-agent': self.useragent}) as res:
                         if res.status == 200:
-                            _, ext = os.path.splitext(__path)
-                            if not ext:
-                                __path += mimetypes.guess_extension(res.content_type) or '.jpg'
-
                             self.reporter.report(INFO, f'downloading {__url} -> {__path}', type=NETWORK)
 
                             dirname, filename = os.path.split(__path)
@@ -246,7 +244,7 @@ class Namer():
         self.namelen = namelen
         self._count = 0
 
-    def getname(self, url: str = '', ext: str = '', number: int = 0) -> str:
+    def getname(self, url: str = '', number: int = 0) -> str:
         pass
 
     def getnameext(self, url: str):
@@ -265,41 +263,40 @@ class KeepedNamer(Namer):
     def __init__(self, namelen) -> None:
         super(KeepedNamer, self).__init__(namelen)
 
-    def getname(self, url: str = '', ext: str = '', number: int = 0):
+    def getname(self, url: str = '', number: int = 0):
         name, _ext = self.getnameext(url)
         if self.namelen > 0:
             name = name[:self.namelen]
-        return name + (_ext or ext)
+        return name + (_ext)
 
 
 class NumberddNamer(Namer):
     def __init__(self, namelen) -> None:
         super(NumberddNamer, self).__init__(namelen)
 
-    def getname(self, url: str = '', ext: str = '', number: int = 0):
+    def getname(self, url: str = '', number: int = 0):
         name, _ext = self.getnameext(url)
         namelen = self.namelen if self.namelen > 0 else 5
-        return str(number).zfill(namelen) + (_ext or ext)
+        return str(number).zfill(namelen) + (_ext)
 
 
 class RandomNamer(Namer):
     def __init__(self, namelen) -> None:
         super(RandomNamer, self).__init__(namelen)
 
-    def getname(self, url: str = '', ext: str = '', number: int = 0):
+    def getname(self, url: str = '', number: int = 0):
         name, _ext = self.getnameext(url)
         namelen = self.namelen if self.namelen > 0 else 5
         rand = [random.choice(string.ascii_letters + string.digits) for i in range(namelen)]
-        return self.get_unique_prefix() + '.' + ''.join(rand) + (_ext or ext)
+        return self.get_unique_prefix() + '.' + ''.join(rand) + (_ext)
 
 
 class UrlNamer(Namer):
     def __init__(self, namelen) -> None:
         super(UrlNamer, self).__init__(namelen)
 
-    def getname(self, url: str = '', ext: str = '', number: int = 0):
-        name, _ext = os.path.splitext(url)
-        return urllib.parse.quote(name, '') + (_ext or ext)
+    def getname(self, url: str = '', number: int = 0):
+        return urllib.parse.quote(url, '')
 
 
 def select_namer(src: str, namelen: int) -> Namer:
@@ -309,30 +306,6 @@ def select_namer(src: str, namelen: int) -> Namer:
         'random': RandomNamer,
         'url': UrlNamer,
     }[src](namelen)
-
-
-rmap = {}
-
-
-def exists_prefix(rootdir, prefix):
-    global rmap
-    if not rmap:
-        files = glob.glob(os.path.join(rootdir, '*'))
-        for e in files:
-            _, basename = os.path.split(e)
-            name, ext = os.path.splitext(basename)
-            rmap[name] = ext
-
-    if prefix in rmap and rmap[prefix] != '.json':
-        return prefix + rmap[prefix]
-    else:
-        return False
-
-
-def register_rmap(path):
-    _, filename = os.path.split(path)
-    basename, ext = os.path.splitext(filename)
-    rmap[basename] = ext
 
 
 async def parallel_for(generator, async_fn, parallel: int = 10, **args):
